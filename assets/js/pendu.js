@@ -51,7 +51,13 @@ function afficherMessage(texte) {
 
 function afficherVies() {
   lives.forEach((life, index) => {
-    if (index < viesRestantes) {
+    const estActive = index < viesRestantes;
+
+    // Met à jour l'emoji pour un feedback visuel net
+    life.textContent = estActive ? "❤️" : "🤍";
+
+    // Met à jour les classes (couleur/état)
+    if (estActive) {
       life.classList.add("active");
       life.classList.remove("lost");
     } else {
@@ -60,6 +66,7 @@ function afficherVies() {
     }
   });
 }
+
 
 
 // Crée le clavier virtuel
