@@ -14,24 +14,18 @@ const winningMessage = () => `Le joueur ${currentPlayer} a gagné ! 🎉`;
 const drawMessage = () => `C'est un match nul ! 🤝`;
 const currentPlayerTurn = () => `C'est le tour du joueur ${currentPlayer}`;
 
-// Conditions de victoire avec leurs angles de rotation
+// Conditions de victoire possibles
 const winningConditions = [
-    { combo: [0, 1, 2], angle: 0 },
-    { combo: [3, 4, 5], angle: 0 },
-    { combo: [6, 7, 8], angle: 0 },
-    { combo: [0, 3, 6], angle: 90 },
-    { combo: [1, 4, 7], angle: 90 },
-    { combo: [2, 5, 8], angle: 90 },
-    { combo: [0, 4, 8], angle: 45 },
-    { combo: [2, 4, 6], angle: -45 }
+    [0, 1, 2], [3, 4, 5], [6, 7, 8], // Horizontales
+    [0, 3, 6], [1, 4, 7], [2, 5, 8], // Verticales
+    [0, 4, 8], [2, 4, 6]            // Diagonales
 ];
 
 // Met à jour l'affichage de l'état du jeu
 statusDisplay.innerHTML = currentPlayerTurn();
 
-// --- Fonctions de gestion du jeu ---
+// Fonctions de gestion du jeu
 
-// Gère le clic sur une cellule
 function handleCellClick(clickedCellEvent) {
     const clickedCell = clickedCellEvent.target;
     const clickedCellIndex = parseInt(clickedCell.getAttribute('data-cell-index'));
@@ -46,55 +40,15 @@ function handleCellClick(clickedCellEvent) {
     checkWinner();
 }
 
-// Fonction pour afficher la ligne gagnante
-function displayWinningLine(winCondition) {
-    const boardRect = board.getBoundingClientRect();
-    const firstCell = cells[winCondition.combo[0]].getBoundingClientRect();
-    
-    // Crée l'élément div pour la ligne
-    const line = document.createElement('div');
-    line.classList.add('winning-line');
-    document.body.appendChild(line);
-
-    // Positionne et stylise la ligne
-    line.style.left = `${firstCell.left}px`;
-    line.style.top = `${firstCell.top}px`;
-    line.style.width = `${boardRect.width}px`;
-    line.style.transform = `rotate(${winCondition.angle}deg)`;
-    
-    // Ajustements pour les différentes orientations
-    if (winCondition.angle === 0) {
-        line.style.top = `${firstCell.top + firstCell.height / 2}px`;
-        line.style.left = `${boardRect.left}px`;
-    } else if (winCondition.angle === 90) {
-        line.style.top = `${boardRect.top}px`;
-        line.style.left = `${firstCell.left + firstCell.width / 2}px`;
-        line.style.height = `${boardRect.height}px`;
-        line.style.width = '5px';
-    } else if (winCondition.angle === 45) {
-        const length = Math.sqrt(Math.pow(boardRect.width, 2) + Math.pow(boardRect.height, 2));
-        line.style.width = `${length}px`;
-        line.style.top = `${boardRect.top}px`;
-        line.style.left = `${boardRect.left}px`;
-    } else if (winCondition.angle === -45) {
-        const length = Math.sqrt(Math.pow(boardRect.width, 2) + Math.pow(boardRect.height, 2));
-        line.style.width = `${length}px`;
-        line.style.top = `${boardRect.top}px`;
-        line.style.left = `${boardRect.right}px`;
-        line.style.transformOrigin = 'right center';
-    }
-}
-
-// Vérifie si un joueur a gagné ou si c'est un match nul
 function checkWinner() {
     let roundWon = false;
-    let winningCondition = null;
+    let winningCombo = null;
 
     for (let i = 0; i < winningConditions.length; i++) {
-        const winCombo = winningConditions[i].combo;
-        const a = gameState[winCombo[0]];
-        const b = gameState[winCombo[1]];
-        const c = gameState[winCombo[2]];
+        const winCondition = winningConditions[i];
+        const a = gameState[winCondition[0]];
+        const b = gameState[winCondition[1]];
+        const c = gameState[winCondition[2]];
         
         if (a === '' || b === '' || c === '') {
             continue;
@@ -102,7 +56,7 @@ function checkWinner() {
         
         if (a === b && b === c) {
             roundWon = true;
-            winningCondition = winningConditions[i];
+            winningCombo = winCondition;
             break;
         }
     }
@@ -110,7 +64,7 @@ function checkWinner() {
     if (roundWon) {
         statusDisplay.innerHTML = winningMessage();
         gameActive = false;
-        displayWinningLine(winningCondition);
+        displayWinningLine(winningCombo);
         return;
     }
 
@@ -124,10 +78,35 @@ function checkWinner() {
     handlePlayerChange();
 }
 
-// Change le joueur actuel (de X à O, et vice-versa)
 function handlePlayerChange() {
     currentPlayer = currentPlayer === "X" ? "O" : "X";
     statusDisplay.innerHTML = currentPlayerTurn();
+}
+
+// Fonction pour afficher la ligne gagnante (VERSION SIMPLIFIÉE)
+function displayWinningLine(winningCombo) {
+    const startCell = cells[winningCombo[0]];
+    const endCell = cells[winningCombo[2]];
+
+    const boardRect = board.getBoundingClientRect();
+    const startRect = startCell.getBoundingClientRect();
+    const endRect = endCell.getBoundingClientRect();
+    
+    const line = document.createElement('div');
+    line.classList.add('winning-line');
+    board.appendChild(line);
+
+    // Positionnement de la ligne
+    let top = (startRect.top + startRect.bottom) / 2 - boardRect.top;
+    let left = (startRect.left + startRect.right) / 2 - boardRect.left;
+    let width = Math.sqrt(Math.pow(endRect.left - startRect.left, 2) + Math.pow(endRect.top - startRect.top, 2));
+    let angle = Math.atan2(endRect.top - startRect.top, endRect.left - startRect.left) * 180 / Math.PI;
+
+    line.style.top = `${top}px`;
+    line.style.left = `${left}px`;
+    line.style.width = `${width}px`;
+    line.style.transform = `rotate(${angle}deg)`;
+    line.style.transformOrigin = `0 0`;
 }
 
 // Réinitialise le jeu
@@ -142,7 +121,6 @@ function handleRestartGame() {
     existingLines.forEach(line => line.remove());
 }
 
-// --- Écouteurs d'événements ---
-
+// Écouteurs d'événements
 cells.forEach(cell => cell.addEventListener('click', handleCellClick));
 restartButton.addEventListener('click', handleRestartGame);
