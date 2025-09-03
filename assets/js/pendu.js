@@ -1,5 +1,25 @@
 // Dictionnaire de mots à deviner
-const mots = ["JAVASCRIPT", "HTML", "CSS", "ALGORITHME", "DEVELOPPEMENT", "PORTFOLIO"];
+const mots = [
+  "JAVASCRIPT",
+  "HTML",
+  "CSS",
+  "ALGORITHME",
+  "DEVELOPPEMENT",
+  "PORTFOLIO",
+  "PROGRAMMATION",
+  "ORDINATEUR",
+  "CYBERSECURITE",
+  "INTERNET",
+  "LOGICIEL",
+  "VARIABLE",
+  "FONCTION",
+  "RESEAU",
+  "SECURITE",
+  "INFORMATIQUE",
+  "APPLICATION",
+  "NAVIGATEUR",
+  "SERVEUR"
+];
 
 // Sélection des éléments HTML
 const wordDisplay = document.querySelector("#wordDisplay");
