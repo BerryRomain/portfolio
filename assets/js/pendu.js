@@ -48,16 +48,19 @@ function afficherMessage(texte) {
     message.textContent = texte;
 }
 
-// Affiche les vies restantes
+
 function afficherVies() {
-    lives.forEach((life, index) => {
-        if (index < viesRestantes) {
-            life.classList.add("active");
-        } else {
-            life.classList.remove("active");
-        }
-    });
+  lives.forEach((life, index) => {
+    if (index < viesRestantes) {
+      life.classList.add("active");
+      life.classList.remove("lost");
+    } else {
+      life.classList.remove("active");
+      life.classList.add("lost");
+    }
+  });
 }
+
 
 // Crée le clavier virtuel
 function creerClavier() {

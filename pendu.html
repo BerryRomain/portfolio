@@ -1,112 +1,155 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jeu du Pendu</title>
-    <link rel="stylesheet" href="assets/css/main.css">
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            padding-top: 50px;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jeu du Pendu</title>
+  <link rel="stylesheet" href="assets/css/main.css">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+      background-color: #f4f4f9;
+    }
 
-        h1 {
-            color: #333;
-        }
+    h1 {
+      color: #333;
+      margin-bottom: 20px;
+    }
 
-        .game-container {
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            gap: 50px;
-            margin-top: 50px;
-        }
+    /* Container principal */
+    .game-container {
+      max-width: 600px;
+      margin: 0 auto;
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
 
-        .word-container {
-            font-size: 2.5em;
-            letter-spacing: 10px;
-            min-height: 50px;
-            margin-bottom: 30px;
-        }
+    /* Vies */
+    .lives {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      font-size: 2em;
+      margin-bottom: 20px;
+    }
 
-        .keyboard {
-            display: grid;
-            grid-template-columns: repeat(6, 1fr);
-            gap: 5px;
-            max-width: 200px;
-        }
+    .lives span {
+      transition: color 0.3s;
+    }
 
-        .key {
-            padding: 10px;
-            font-size: 1.2em;
-            cursor: pointer;
-            background-color: #ddd;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            transition: background-color 0.2s;
-        }
+    .lives .active {
+      color: #e74c3c; /* Rouge = vie dispo */
+    }
 
-        .key:hover:not([disabled]) {
-            background-color: #ccc;
-        }
+    .lives .lost {
+      color: #ccc; /* Gris = vie perdue */
+    }
 
-        .key.correct {
-            background-color: #4CAF50; /* Vert */
-            color: white;
-        }
+    /* Mot */
+    .word-container {
+      font-size: 2.5em;
+      letter-spacing: 10px;
+      margin: 20px 0;
+      font-weight: bold;
+    }
 
-        .key.wrong {
-            background-color: #f44336; /* Rouge */
-            color: white;
-        }
+    /* Message */
+    #message {
+      font-size: 1.2em;
+      margin-bottom: 20px;
+      color: #333;
+    }
 
-        .lives {
-            display: flex;
-            gap: 10px;
-            font-size: 2em;
-            color: #ccc;
-        }
+    /* Clavier */
+    .keyboard {
+      display: grid;
+      grid-template-columns: repeat(9, 1fr);
+      gap: 8px;
+      margin-top: 20px;
+    }
 
-        .lives .active {
-            color: #e74c3c;
-        }
-    </style>
+    .key {
+      padding: 10px;
+      font-size: 1.1em;
+      cursor: pointer;
+      background-color: #ddd;
+      border: none;
+      border-radius: 6px;
+      transition: background-color 0.2s;
+    }
+
+    .key:hover:not([disabled]) {
+      background-color: #ccc;
+    }
+
+    .key.correct {
+      background-color: #4CAF50; /* Vert */
+      color: white;
+    }
+
+    .key.wrong {
+      background-color: #f44336; /* Rouge */
+      color: white;
+    }
+
+    /* Boutons */
+    #restartButton {
+      margin-top: 20px;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      background: #3498db;
+      color: white;
+      font-size: 1em;
+      cursor: pointer;
+      display: none;
+    }
+
+    #restartButton:hover {
+      background: #2980b9;
+    }
+
+    a.menu-link {
+      display: block;
+      margin-top: 30px;
+      color: #3498db;
+      text-decoration: none;
+      font-weight: bold;
+    }
+
+    a.menu-link:hover {
+      text-decoration: underline;
+    }
+  </style>
 </head>
 <body>
 
-    <h1>Jeu du Pendu</h1>
+  <h1>Jeu du Pendu</h1>
 
-    <div class="game-container">
-        <div class="lives-container">
-            <h3>Vies</h3>
-            <div class="lives">
-                <span id="life1" class="active">❤️</span>
-                <span id="life2" class="active">❤️</span>
-                <span id="life3" class="active">❤️</span>
-                <span id="life4" class="active">❤️</span>
-                <span id="life5" class="active">❤️</span>
-                <span id="life6" class="active">❤️</span>
-                <span id="life7" class="active">❤️</span>
-            </div>
-        </div>
-
-        <div class="main-game">
-            <div id="wordDisplay" class="word-container"></div>
-            <p id="message"></p>
-            <button id="restartButton" style="display:none;">Recommencer</button>
-        </div>
-
-        <div class="keyboard-container">
-            <h3>Lettres</h3>
-            <div class="keyboard" id="keyboard"></div>
-        </div>
+  <div class="game-container">
+    <div class="lives">
+      <span id="life1" class="active">❤️</span>
+      <span id="life2" class="active">❤️</span>
+      <span id="life3" class="active">❤️</span>
+      <span id="life4" class="active">❤️</span>
+      <span id="life5" class="active">❤️</span>
+      <span id="life6" class="active">❤️</span>
+      <span id="life7" class="active">❤️</span>
     </div>
-    
-    <a href="mini-jeu.html" style="display:block; margin-top: 50px;">Retour au menu</a>
 
-    <script src="assets/js/pendu.js"></script>
+    <div id="wordDisplay" class="word-container"></div>
+    <p id="message"></p>
+    <button id="restartButton">Recommencer</button>
 
+    <div class="keyboard" id="keyboard"></div>
+  </div>
+  
+  <a href="mini-jeu.html" class="menu-link">⬅ Retour au menu</a>
+
+  <script src="assets/js/pendu.js"></script>
 </body>
 </html>
