@@ -83,7 +83,7 @@ function handlePlayerChange() {
     statusDisplay.innerHTML = currentPlayerTurn();
 }
 
-// Fonction pour afficher la ligne gagnante (VERSION SIMPLIFIÉE)
+
 function displayWinningLine(winningCombo) {
     const startCell = cells[winningCombo[0]];
     const endCell = cells[winningCombo[2]];
@@ -94,19 +94,21 @@ function displayWinningLine(winningCombo) {
     
     const line = document.createElement('div');
     line.classList.add('winning-line');
-    board.appendChild(line);
+    board.appendChild(line); 
 
-    // Positionnement de la ligne
-    let top = (startRect.top + startRect.bottom) / 2 - boardRect.top;
-    let left = (startRect.left + startRect.right) / 2 - boardRect.left;
-    let width = Math.sqrt(Math.pow(endRect.left - startRect.left, 2) + Math.pow(endRect.top - startRect.top, 2));
-    let angle = Math.atan2(endRect.top - startRect.top, endRect.left - startRect.left) * 180 / Math.PI;
+    const startX = (startRect.left + startRect.right) / 2 - boardRect.left;
+    const startY = (startRect.top + startRect.bottom) / 2 - boardRect.top;
+    const endX = (endRect.left + endRect.right) / 2 - boardRect.left;
+    const endY = (endRect.top + endRect.bottom) / 2 - boardRect.top;
+    
+    const width = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
+    const angle = Math.atan2(endY - startY, endX - startX) * 180 / Math.PI;
 
-    line.style.top = `${top}px`;
-    line.style.left = `${left}px`;
+    line.style.top = `${startY}px`;
+    line.style.left = `${startX}px`;
     line.style.width = `${width}px`;
     line.style.transform = `rotate(${angle}deg)`;
-    line.style.transformOrigin = `0 0`;
+    line.style.transformOrigin = `0 0`; 
 }
 
 // Réinitialise le jeu
