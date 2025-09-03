@@ -63,7 +63,6 @@ function checkWinner() {
             continue;
         }
         
-        // On vérifie si les 3 symboles sont identiques
         if (a === b && b === c) {
             roundWon = true;
             break;
