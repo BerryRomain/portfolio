@@ -45,6 +45,32 @@
             background-color: #666;
         }
 
+        .winning-line {
+            position: absolute;
+            background-color: rgb(163, 57, 57);
+            height: 5px; /* Épaisseur de la ligne */
+            z-index: 1; /* Pour que la ligne soit au-dessus des cellules */
+        }
+        /* Styles spécifiques pour les lignes horizontales */
+        .winning-line.horizontal {
+            width: 310px; /* Largeur du plateau */
+        }
+        /* Styles spécifiques pour les lignes verticales */
+        .winning-line.vertical {
+            width: 5px; /* Épaisseur de la ligne */
+            height: 310px; /* Hauteur du plateau */
+        }
+        /* Styles spécifiques pour les diagonales */
+        .winning-line.diagonal {
+            width: 435px; /* Longueur calculée pour la diagonale d'un carré de 310px */
+            transform-origin: left center;
+        }
+
+        /* Nécessaire pour positionner les lignes */
+        .board {
+            position: relative; /* Ajouté pour que les lignes soient positionnées par rapport au plateau */
+            overflow: hidden; /* Cache les parties de la ligne qui dépassent */
+        }
     </style>
 </head>
 <body>
