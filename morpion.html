@@ -24,6 +24,7 @@
             background-color: #000;
             border: 2px solid #000;
             width: 310px;
+            position: relative; /* AJOUTÉ pour le positionnement de la ligne gagnante */
         }
 
         .cell {
@@ -69,6 +70,28 @@
             background-color: #888;
             color: white;
             display: inline-block;
+        }
+        
+        /* NOUVELLES CLASSES POUR LA LIGNE DE VICTOIRE */
+        .winning-line {
+            position: absolute;
+            background-color: red;
+            height: 5px;
+            z-index: 1;
+        }
+
+        .winning-line.horizontal {
+            width: 310px;
+        }
+
+        .winning-line.vertical {
+            width: 5px;
+            height: 310px;
+        }
+
+        .winning-line.diagonal {
+            width: 435px;
+            transform-origin: left center;
         }
     </style>
 </head>
