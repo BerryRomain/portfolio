@@ -29,13 +29,15 @@
     }
 
 
-    /* Mot */
+    
     .word-container {
-      font-size: 2.5em;
-      letter-spacing: 10px;
-      margin: 20px 0;
-      font-weight: bold;
+    font-size: 2.5em;
+    letter-spacing: 15px;    
+    margin: 20px 0;
+    font-weight: bold;
+    white-space: nowrap;    
     }
+
 
     /* Message */
     #message {
@@ -105,12 +107,21 @@
     .lives .lost   { color: #bbb; }    
 
     .back-button {
-            text-decoration: none;
-            background-color: #888;
-            color: white;
-            display: inline-block;
-        }
-    
+    text-decoration: none;
+    background-color: #888;
+    color: white;
+    display: inline-block;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: bold;
+    transition: background-color 0.3s, transform 0.2s;
+    margin-top: 30px;
+    }
+
+    .back-button:hover {
+    background-color: #666;   /* gris plus foncé */
+    transform: scale(1.05);   /* petit effet zoom */
+    }
   </style>
 </head>
 <body>
