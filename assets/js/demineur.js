@@ -7,13 +7,18 @@ let timer = 0;
 let interval = null;
 let gameActive = true;
 
+window.onload = () => {
+  startGame();
+};
+
 const gridElement = document.getElementById("grid");
 const minesElement = document.getElementById("mines");
 const timerElement = document.getElementById("timer");
 
 function startGame() {
   // Récupérer la difficulté choisie
-  const difficulty = document.getElementById("difficulty").value;
+  const difficultySelect = document.getElementById("difficulty");
+  const difficulty = difficultySelect ? difficultySelect.value : "medium";
 
   switch(difficulty) {
     case "easy":
@@ -36,7 +41,10 @@ function startGame() {
     medium: "Moyen",
     hard: "Difficile"
   };
-  document.getElementById("current-difficulty").textContent = `Difficulté actuelle : ${difficultyText[difficulty]}`;
+  const diffElement = document.getElementById("current-difficulty");
+  if(diffElement) {
+    diffElement.textContent = `Difficulté actuelle : ${difficultyText[difficulty]}`;
+  }
 
   // Reset
   gridElement.innerHTML = "";
@@ -50,8 +58,7 @@ function startGame() {
   minesElement.textContent = `Mines restantes: ${flagsLeft}`;
   timerElement.textContent = "Temps: 0s";
 
-  // Adapter la grille pour la taille choisie
-  // Redimensionner automatiquement les cases selon la grille
+  // Adapter la grille et taille des cases selon la difficulté
   const cellSize = gridSize <= 9 ? 40 : 30; // 40px pour facile/moyen, 30px pour difficile
   gridElement.style.gridTemplateColumns = `repeat(${gridSize}, ${cellSize}px)`;
   gridElement.style.gridTemplateRows = `repeat(${gridSize}, ${cellSize}px)`;
@@ -64,7 +71,7 @@ function startGame() {
       cell.classList.add("cell");
       cell.style.width = `${cellSize}px`;
       cell.style.height = `${cellSize}px`;
-      cell.style.lineHeight = `${cellSize}px`; // centrer le texte verticalement
+      cell.style.lineHeight = `${cellSize}px`;
       cell.dataset.row = row;
       cell.dataset.col = col;
       cell.addEventListener("click", () => revealCell(row, col));
@@ -220,5 +227,4 @@ function getNumberColor(num) {
   }
 }
 
-// Lancer la première partie automatiquement
-startGame();
+
