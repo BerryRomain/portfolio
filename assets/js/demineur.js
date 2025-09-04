@@ -89,7 +89,7 @@ function revealCell(row, col) {
   if (!gameActive) return;
 
   const cell = grid[row][col];
-  
+
   if (cell.revealed || cell.flagged) return;
 
   cell.revealed = true;
@@ -97,10 +97,12 @@ function revealCell(row, col) {
   cell.element.classList.add("revealed");
 
   if (cell.mine) {
-    cell.element.classList.add("mine");
-    gameOver(false);
-    return;
-  }
+  cell.element.classList.add("mine");
+  cell.element.textContent = "💣";
+  gameOver(false);
+  return;
+}
+
 
   if (cell.adjacentMines === 0) {
     for (let r = row - 1; r <= row + 1; r++) {
@@ -138,6 +140,18 @@ function gameOver(won) {
   gameActive = false;
   clearInterval(interval);
 
+  if (!won) {
+    for (let r = 0; r < gridSize; r++) {
+      for (let c = 0; c < gridSize; c++) {
+        const cell = grid[r][c];
+        if (cell.mine) {
+          cell.element.classList.add("mine");
+          cell.element.textContent = "💣";
+        }
+      }
+    }
+  }
+
   const messageDiv = document.getElementById("message");
   if (won) {
     messageDiv.textContent = "🎉 Bravo, vous avez gagné !";
@@ -147,6 +161,7 @@ function gameOver(won) {
     messageDiv.style.color = "red";
   }
 }
+
 
 
 function checkWin() {
