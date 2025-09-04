@@ -84,37 +84,40 @@ function countAdjacentMines(row, col) {
 }
 
 function revealCell(row, col) {
+  if (!gameActive) return;
+
   const cell = grid[row][col];
+  const cellElement = document.querySelector(
+    `.cell[data-row='${row}'][data-col='${col}']`
+  );
+
   if (cell.revealed || cell.flagged) return;
 
   cell.revealed = true;
-  cell.element.classList.add("revealed");
+  cellElement.classList.add("revealed");
 
-  if (cell.mine) {
-    cell.element.textContent = "💣";
-    gameOver(false);
+  if (cell.isMine) {
+    cellElement.classList.add("mine");
+    gameOver(false); 
     return;
   }
 
-  revealedCount++;
-  if (cell.adjacentMines > 0) {
-    cell.element.textContent = cell.adjacentMines;
-    cell.element.style.color = getNumberColor(cell.adjacentMines);
-  } else {
-    // Révéler automatiquement les voisins si 0
-    for (let dr = -1; dr <= 1; dr++) {
-      for (let dc = -1; dc <= 1; dc++) {
-        const nr = row + dr;
-        const nc = col + dc;
-        if (nr >= 0 && nr < gridSize && nc >= 0 && nc < gridSize) {
-          revealCell(nr, nc);
+  if (cell.adjacentMines === 0) {
+    for (let r = row - 1; r <= row + 1; r++) {
+      for (let c = col - 1; c <= col + 1; c++) {
+        if (r >= 0 && r < gridSize && c >= 0 && c < gridSize) {
+          revealCell(r, c);
         }
       }
     }
+  } else {
+    cellElement.textContent = cell.adjacentMines;
+    cellElement.style.color = getNumberColor(cell.adjacentMines);
   }
 
   checkWin();
 }
+
 
 function toggleFlag(row, col) {
   const cell = grid[row][col];
