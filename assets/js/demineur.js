@@ -118,7 +118,6 @@ function revealCell(row, col) {
   checkWin();
 }
 
-
 function toggleFlag(row, col) {
   const cell = grid[row][col];
   if (cell.revealed) return;
