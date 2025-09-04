@@ -133,22 +133,19 @@ function toggleFlag(row, col) {
 }
 
 function gameOver(won) {
-  clearInterval(interval);
-  // Révéler toutes les mines
-  for (let r = 0; r < gridSize; r++) {
-    for (let c = 0; c < gridSize; c++) {
-      const cell = grid[r][c];
-      if (cell.mine) {
-        cell.element.textContent = "💣";
-        cell.element.classList.add("mine");
-      }
-    }
+  gameActive = false;
+  clearInterval(timerInterval);
+
+  const messageDiv = document.getElementById("message");
+  if (won) {
+    messageDiv.textContent = "🎉 Bravo, vous avez gagné !";
+    messageDiv.style.color = "green";
+  } else {
+    messageDiv.textContent = "💥 Perdu ! Vous avez cliqué sur une mine.";
+    messageDiv.style.color = "red";
   }
-  setTimeout(() => {
-    alert(won ? "Bravo, vous avez gagné !" : "Boom 💥 Vous avez perdu !");
-    startGame();
-  }, 200);
 }
+
 
 function checkWin() {
   if (revealedCount === gridSize * gridSize - mineCount) {

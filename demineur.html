@@ -24,12 +24,14 @@
     }
 
     .grid {
-      display: grid;
-      grid-template-columns: repeat(9, 40px);
-      grid-template-rows: repeat(9, 40px);
-      margin: 0 auto;
-      gap: 2px;
+    display: grid;
+    grid-template-columns: repeat(9, 40px);
+    grid-template-rows: repeat(9, 40px);
+    gap: 2px;
+    justify-content: center; /* centre horizontalement */
+    margin: 20px auto;       /* espace autour */
     }
+
 
     .cell {
       width: 40px;
@@ -85,6 +87,9 @@
   </div>
 
   <div id="grid" class="grid"></div>
+
+    <div id="message" style="margin-top:20px; font-size:18px; font-weight:bold;"></div>
+
 
   <div class="controls">
     <button onclick="startGame()">Nouvelle partie</button>
