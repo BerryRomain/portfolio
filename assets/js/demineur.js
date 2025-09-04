@@ -5,6 +5,7 @@ let revealedCount = 0;
 let flagsLeft = mineCount;
 let timer = 0;
 let interval = null;
+let gameActive = true;
 
 const gridElement = document.getElementById("grid");
 const minesElement = document.getElementById("mines");
@@ -17,6 +18,7 @@ function startGame() {
   revealedCount = 0;
   flagsLeft = mineCount;
   timer = 0;
+  gameActive = true;
   clearInterval(interval);
   interval = setInterval(updateTimer, 1000);
   minesElement.textContent = `Mines restantes: ${flagsLeft}`;
@@ -87,18 +89,16 @@ function revealCell(row, col) {
   if (!gameActive) return;
 
   const cell = grid[row][col];
-  const cellElement = document.querySelector(
-    `.cell[data-row='${row}'][data-col='${col}']`
-  );
-
+  
   if (cell.revealed || cell.flagged) return;
 
   cell.revealed = true;
-  cellElement.classList.add("revealed");
+  revealedCount++;
+  cell.element.classList.add("revealed");
 
-  if (cell.isMine) {
-    cellElement.classList.add("mine");
-    gameOver(false); 
+  if (cell.mine) {
+    cell.element.classList.add("mine");
+    gameOver(false);
     return;
   }
 
@@ -111,8 +111,8 @@ function revealCell(row, col) {
       }
     }
   } else {
-    cellElement.textContent = cell.adjacentMines;
-    cellElement.style.color = getNumberColor(cell.adjacentMines);
+    cell.element.textContent = cell.adjacentMines;
+    cell.element.style.color = getNumberColor(cell.adjacentMines);
   }
 
   checkWin();
@@ -137,7 +137,7 @@ function toggleFlag(row, col) {
 
 function gameOver(won) {
   gameActive = false;
-  clearInterval(timerInterval);
+  clearInterval(interval);
 
   const messageDiv = document.getElementById("message");
   if (won) {
