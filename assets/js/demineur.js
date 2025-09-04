@@ -172,5 +172,5 @@ function getNumberColor(num) {
   }
 }
 
-// Lancer une partie au chargement
+
 startGame();
