@@ -51,7 +51,7 @@
     }
 
     .cell.mine {
-      background-color: rgb(126, 30, 30);
+      background-color: rgb(192, 34, 34);
       color: white;
     }
 
@@ -90,11 +90,16 @@
 
     <div id="message" style="margin-top:20px; font-size:18px; font-weight:bold;"></div>
 
-
-  <div class="controls">
-    <button onclick="startGame()">Nouvelle partie</button>
-    <a href="mini-jeu.html" class="back-home-button">Retour aux mini-jeux</a>
-  </div>
+<div class="controls">
+  <label for="difficulty">Difficulté :</label>
+  <select id="difficulty">
+    <option value="easy">Facile</option>
+    <option value="medium">Moyen</option>
+    <option value="hard">Difficile</option>
+  </select>
+  <button onclick="startGame()">Nouvelle partie</button>
+  <a href="mini-jeu.html" class="back-home-button">Retour aux mini-jeux</a>
+</div>
 
   <script src="assets/js/demineur.js"></script>
 </body>

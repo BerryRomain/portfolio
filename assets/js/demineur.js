@@ -12,6 +12,24 @@ const minesElement = document.getElementById("mines");
 const timerElement = document.getElementById("timer");
 
 function startGame() {
+  // Récupérer la difficulté choisie
+  const difficulty = document.getElementById("difficulty").value;
+
+  switch(difficulty) {
+    case "easy":
+      gridSize = 6;
+      mineCount = 6;
+      break;
+    case "medium":
+      gridSize = 9;
+      mineCount = 10;
+      break;
+    case "hard":
+      gridSize = 12;
+      mineCount = 20;
+      break;
+  }
+
   // Reset
   gridElement.innerHTML = "";
   grid = [];
@@ -23,6 +41,10 @@ function startGame() {
   interval = setInterval(updateTimer, 1000);
   minesElement.textContent = `Mines restantes: ${flagsLeft}`;
   timerElement.textContent = "Temps: 0s";
+
+  // Adapter la grille pour la taille choisie
+  gridElement.style.gridTemplateColumns = `repeat(${gridSize}, 40px)`;
+  gridElement.style.gridTemplateRows = `repeat(${gridSize}, 40px)`;
 
   // Créer la grille vide
   for (let row = 0; row < gridSize; row++) {
@@ -48,6 +70,27 @@ function startGame() {
       };
     }
   }
+
+  // Placer les mines
+  let minesPlaced = 0;
+  while (minesPlaced < mineCount) {
+    const r = Math.floor(Math.random() * gridSize);
+    const c = Math.floor(Math.random() * gridSize);
+    if (!grid[r][c].mine) {
+      grid[r][c].mine = true;
+      minesPlaced++;
+    }
+  }
+
+  // Calculer les nombres autour
+  for (let r = 0; r < gridSize; r++) {
+    for (let c = 0; c < gridSize; c++) {
+      if (!grid[r][c].mine) {
+        grid[r][c].adjacentMines = countAdjacentMines(r, c);
+      }
+    }
+  }
+}
 
   // Placer les mines
   let minesPlaced = 0;
