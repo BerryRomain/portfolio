@@ -1,5 +1,5 @@
-const gridSize = 9;
-const mineCount = 10;
+let gridSize = 9;
+let mineCount = 10;
 let grid = [];
 let revealedCount = 0;
 let flagsLeft = mineCount;
@@ -30,6 +30,14 @@ function startGame() {
       break;
   }
 
+  // Mettre à jour le texte de la difficulté
+  const difficultyText = {
+    easy: "Facile",
+    medium: "Moyen",
+    hard: "Difficile"
+  };
+  document.getElementById("current-difficulty").textContent = `Difficulté actuelle : ${difficultyText[difficulty]}`;
+
   // Reset
   gridElement.innerHTML = "";
   grid = [];
@@ -43,8 +51,10 @@ function startGame() {
   timerElement.textContent = "Temps: 0s";
 
   // Adapter la grille pour la taille choisie
-  gridElement.style.gridTemplateColumns = `repeat(${gridSize}, 40px)`;
-  gridElement.style.gridTemplateRows = `repeat(${gridSize}, 40px)`;
+  // Redimensionner automatiquement les cases selon la grille
+  const cellSize = gridSize <= 9 ? 40 : 30; // 40px pour facile/moyen, 30px pour difficile
+  gridElement.style.gridTemplateColumns = `repeat(${gridSize}, ${cellSize}px)`;
+  gridElement.style.gridTemplateRows = `repeat(${gridSize}, ${cellSize}px)`;
 
   // Créer la grille vide
   for (let row = 0; row < gridSize; row++) {
@@ -52,6 +62,9 @@ function startGame() {
     for (let col = 0; col < gridSize; col++) {
       const cell = document.createElement("div");
       cell.classList.add("cell");
+      cell.style.width = `${cellSize}px`;
+      cell.style.height = `${cellSize}px`;
+      cell.style.lineHeight = `${cellSize}px`; // centrer le texte verticalement
       cell.dataset.row = row;
       cell.dataset.col = col;
       cell.addEventListener("click", () => revealCell(row, col));
@@ -70,27 +83,6 @@ function startGame() {
       };
     }
   }
-
-  // Placer les mines
-  let minesPlaced = 0;
-  while (minesPlaced < mineCount) {
-    const r = Math.floor(Math.random() * gridSize);
-    const c = Math.floor(Math.random() * gridSize);
-    if (!grid[r][c].mine) {
-      grid[r][c].mine = true;
-      minesPlaced++;
-    }
-  }
-
-  // Calculer les nombres autour
-  for (let r = 0; r < gridSize; r++) {
-    for (let c = 0; c < gridSize; c++) {
-      if (!grid[r][c].mine) {
-        grid[r][c].adjacentMines = countAdjacentMines(r, c);
-      }
-    }
-  }
-}
 
   // Placer les mines
   let minesPlaced = 0;
@@ -132,7 +124,6 @@ function revealCell(row, col) {
   if (!gameActive) return;
 
   const cell = grid[row][col];
-
   if (cell.revealed || cell.flagged) return;
 
   cell.revealed = true;
@@ -140,12 +131,11 @@ function revealCell(row, col) {
   cell.element.classList.add("revealed");
 
   if (cell.mine) {
-  cell.element.classList.add("mine");
-  cell.element.textContent = "💣";
-  gameOver(false);
-  return;
-}
-
+    cell.element.classList.add("mine");
+    cell.element.textContent = "💣";
+    gameOver(false);
+    return;
+  }
 
   if (cell.adjacentMines === 0) {
     for (let r = row - 1; r <= row + 1; r++) {
@@ -205,8 +195,6 @@ function gameOver(won) {
   }
 }
 
-
-
 function checkWin() {
   if (revealedCount === gridSize * gridSize - mineCount) {
     gameOver(true);
@@ -232,5 +220,5 @@ function getNumberColor(num) {
   }
 }
 
-
+// Lancer la première partie automatiquement
 startGame();
