@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Démineur</title>
+  <style>
+    body {
+      text-align: center;
+      font-family: Arial, sans-serif;
+      background: #f9f9f9;
+    }
+
+    h1 {
+      margin-top: 20px;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-around;
+      margin: 20px;
+      font-size: 18px;
+      font-weight: bold;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(9, 40px);
+      grid-template-rows: repeat(9, 40px);
+      margin: 0 auto;
+      gap: 2px;
+    }
+
+    .cell {
+      width: 40px;
+      height: 40px;
+      border: 1px solid #888;
+      background-color: #bbb;
+      text-align: center;
+      line-height: 40px;
+      font-weight: bold;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .cell.revealed {
+      background-color: #eee;
+      cursor: default;
+    }
+
+    .cell.mine {
+      background-color: red;
+      color: white;
+    }
+
+    .cell.flag {
+      background-color: yellow;
+    }
+
+    .controls {
+      margin-top: 20px;
+    }
+
+    .back-home-button {
+      padding: 10px 20px;
+      font-size: 1em;
+      text-decoration: none;
+      color: #fff;
+      background-color: #888; 
+      border-radius: 5px;
+      transition: background-color 0.3s ease;
+    }
+
+    .back-home-button:hover {
+      background-color: #666;
+    }
+  </style>
+</head>
+<body>
+  <h1>Démineur</h1>
+
+  <div class="header">
+    <div id="mines">Mines restantes: 10</div>
+    <div id="timer">Temps: 0s</div>
+  </div>
+
+  <div id="grid" class="grid"></div>
+
+  <div class="controls">
+    <button onclick="startGame()">Nouvelle partie</button>
+    <a href="mini-jeu.html" class="back-home-button">Retour aux mini-jeux</a>
+  </div>
+
+  <script src="assets/js/demineur.js"></script>
+</body>
+</html>
