@@ -18,8 +18,35 @@ const mots = [
   "INFORMATIQUE",
   "APPLICATION",
   "NAVIGATEUR",
-  "SERVEUR"
+  "SERVEUR",
+  "COMPILATEUR",
+  "PROCESSEUR",
+  "MEMOIRE",
+  "DONNEES",
+  "STRUCTURE",
+  "OBJET",
+  "TABLEAU",
+  "BOUCLE",
+  "CONSTANTE",
+  "MODULE",
+  "SCRIPT",
+  "CODE",
+  "CLOUD",
+  "PROTOCOLE",
+  "FIREWALL",
+  "ROUTEUR",
+  "DOMAINE",
+  "SITE",
+  "PAGE",
+  "SYNTAXE",
+  "FICHIER",
+  "CLASSE",
+  "TOKEN",
+  "HASH",
+  "CHIFFREMENT",
+  "CLE"
 ];
+
 
 // Sélection des éléments HTML
 const wordDisplay = document.querySelector("#wordDisplay");
