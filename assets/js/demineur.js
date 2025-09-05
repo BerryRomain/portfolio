@@ -34,10 +34,19 @@ function startGame() {
       gridSize = 12;
       mineCount = 20;
       break;
+    case "extreme": // 🔥 Nouveau mode
+      gridSize = 16;
+      mineCount = 50;
+      break;
   }
 
   // Mettre à jour le texte de difficulté
-  const difficultyText = { easy: "Facile", medium: "Moyen", hard: "Difficile" };
+  const difficultyText = { 
+    easy: "Facile", 
+    medium: "Moyen", 
+    hard: "Difficile", 
+    extreme: "Extrême 💀" 
+  };
   const diffElement = document.getElementById("current-difficulty");
   if(diffElement) diffElement.textContent = `Difficulté actuelle : ${difficultyText[difficulty]}`;
 
@@ -53,8 +62,15 @@ function startGame() {
   minesElement.textContent = `Mines restantes: ${flagsLeft}`;
   timerElement.textContent = "Temps: 0s";
 
+  // 🔹 Effacer le message précédent
+  const messageDiv = document.getElementById("message");
+  if(messageDiv) {
+    messageDiv.textContent = "";
+    messageDiv.style.color = "black";
+  }
+
   // Calculer la taille des cases dynamiquement
-  const cellSize = gridSize <= 9 ? 40 : 30;
+  const cellSize = gridSize <= 9 ? 40 : gridSize <= 12 ? 30 : 25;
   gridElement.style.gridTemplateColumns = `repeat(${gridSize}, ${cellSize}px)`;
   gridElement.style.gridTemplateRows = `repeat(${gridSize}, ${cellSize}px)`;
 
@@ -147,15 +163,32 @@ function revealCell(row, col) {
 function toggleFlag(row, col) {
   const cell = grid[row][col];
   if (cell.revealed) return;
-  if (cell.flagged) { cell.flagged = false; cell.element.textContent = ""; flagsLeft++; }
-  else if (flagsLeft > 0) { cell.flagged = true; cell.element.textContent = "🚩"; flagsLeft--; }
+  if (cell.flagged) { 
+    cell.flagged = false; 
+    cell.element.textContent = ""; 
+    flagsLeft++; 
+  }
+  else if (flagsLeft > 0) { 
+    cell.flagged = true; 
+    cell.element.textContent = "🚩"; 
+    flagsLeft--; 
+  }
   minesElement.textContent = `Mines restantes: ${flagsLeft}`;
 }
 
 function gameOver(won) {
   gameActive = false;
   clearInterval(interval);
-  if (!won) for (let r = 0; r < gridSize; r++) for (let c = 0; c < gridSize; c++) if (grid[r][c].mine) { grid[r][c].element.classList.add("mine"); grid[r][c].element.textContent = "💣"; }
+  if (!won) {
+    for (let r = 0; r < gridSize; r++) {
+      for (let c = 0; c < gridSize; c++) {
+        if (grid[r][c].mine) {
+          grid[r][c].element.classList.add("mine");
+          grid[r][c].element.textContent = "💣";
+        }
+      }
+    }
+  }
 
   const messageDiv = document.getElementById("message");
   messageDiv.textContent = won ? "🎉 Bravo, vous avez gagné !" : "💥 Perdu ! Vous avez cliqué sur une mine.";
@@ -166,7 +199,10 @@ function checkWin() {
   if (revealedCount === gridSize * gridSize - mineCount) gameOver(true);
 }
 
-function updateTimer() { timer++; timerElement.textContent = `Temps: ${timer}s`; }
+function updateTimer() { 
+  timer++; 
+  timerElement.textContent = `Temps: ${timer}s`; 
+}
 
 function getNumberColor(num) {
   switch(num){
@@ -180,6 +216,9 @@ function getNumberColor(num) {
     case 8: return "gray";
     default: return "black";
   }
+
+
+
 }
 
 
