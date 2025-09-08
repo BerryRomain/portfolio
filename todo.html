@@ -21,16 +21,23 @@
       background: white;
       padding: 20px;
       border-radius: 10px;
-      max-width: 400px;
+      max-width: 450px;
       margin: auto;
       box-shadow: 0 4px 10px rgba(0,0,0,0.1);
     }
 
-    input[type="text"] {
-      width: 70%;
+    input[type="text"], input[type="date"] {
       padding: 10px;
       border: 1px solid #ccc;
       border-radius: 5px;
+    }
+
+    input[type="text"] {
+      width: 50%;
+    }
+
+    input[type="date"] {
+      width: 35%;
     }
 
     button {
@@ -67,6 +74,11 @@
       color: gray;
     }
 
+    li.overdue span {
+      color: red;
+      font-weight: bold;
+    }
+
     .delete {
       background: red;
       padding: 5px 10px;
@@ -82,6 +94,7 @@
   <h1>📝 To-Do List</h1>
   <div class="todo-container">
     <input type="text" id="taskInput" placeholder="Nouvelle tâche...">
+    <input type="date" id="taskDate">
     <button onclick="addTask()">Ajouter</button>
 
     <ul id="taskList"></ul>

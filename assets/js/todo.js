@@ -1,4 +1,5 @@
 const taskInput = document.getElementById("taskInput");
+const taskDate = document.getElementById("taskDate");
 const taskList = document.getElementById("taskList");
 
 // Charger les tâches depuis le localStorage au démarrage
@@ -8,20 +9,31 @@ window.onload = () => {
 
 function addTask() {
   const taskText = taskInput.value.trim();
+  const dueDate = taskDate.value;
+
   if (taskText === "") return;
 
-  createTaskElement(taskText, false);
+  createTaskElement(taskText, dueDate, false);
   saveTasks();
 
   taskInput.value = "";
+  taskDate.value = "";
 }
 
-function createTaskElement(text, completed) {
+function createTaskElement(text, dueDate, completed) {
   const li = document.createElement("li");
 
   const span = document.createElement("span");
-  span.textContent = text;
+  span.textContent = text + (dueDate ? ` (📅 ${dueDate})` : "");
   if (completed) li.classList.add("completed");
+
+  // Vérifier si la tâche est en retard
+  if (dueDate) {
+    const today = new Date().toISOString().split("T")[0];
+    if (dueDate < today && !completed) {
+      li.classList.add("overdue");
+    }
+  }
 
   span.onclick = () => {
     li.classList.toggle("completed");
@@ -45,8 +57,13 @@ function createTaskElement(text, completed) {
 function saveTasks() {
   const tasks = [];
   document.querySelectorAll("#taskList li").forEach(li => {
+    const text = li.querySelector("span").textContent;
+    const regex = /(.*)\s\(📅\s(.+)\)$/;
+    let match = text.match(regex);
+
     tasks.push({
-      text: li.querySelector("span").textContent,
+      text: match ? match[1] : text,
+      dueDate: match ? match[2] : "",
       completed: li.classList.contains("completed")
     });
   });
@@ -56,5 +73,5 @@ function saveTasks() {
 // Recharge les tâches depuis le localStorage
 function loadTasks() {
   const tasks = JSON.parse(localStorage.getItem("tasks")) || [];
-  tasks.forEach(task => createTaskElement(task.text, task.completed));
+  tasks.forEach(task => createTaskElement(task.text, task.dueDate, task.completed));
 }
