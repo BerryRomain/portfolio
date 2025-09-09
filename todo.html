@@ -41,8 +41,8 @@
     }
 
     button {
-      padding: 8px 12px;
-      margin: 3px;
+      padding: 10px 15px;
+      margin-left: 5px;
       border: none;
       background: #007bff;
       color: white;
@@ -62,7 +62,7 @@
     }
 
     li {
-      padding: 8px;
+      padding: 10px;
       border-bottom: 1px solid #eee;
       display: flex;
       justify-content: space-between;
@@ -93,52 +93,44 @@
       background: orange;
       padding: 5px 10px;
       border-radius: 5px;
+      margin-right: 5px;
     }
 
     .edit:hover {
       background: darkorange;
     }
-
-    .controls {
-      margin-top: 15px;
-    }
   </style>
 </head>
 <body>
   <h1>📝 To-Do List</h1>
-  <div class="todo-container">
-    <input type="text" id="taskInput" placeholder="Nouvelle tâche...">
-    <input type="date" id="taskDate">
-    <button onclick="addTask()">Ajouter</button>
+<div class="todo-container">
+  <input type="text" id="taskInput" placeholder="Nouvelle tâche...">
+  <input type="date" id="taskDate">
+  <button onclick="addTask()">Ajouter</button>
 
-    <!-- Recherche -->
-    <div style="margin-top:10px;">
-      <input type="text" id="searchInput" placeholder="Rechercher une tâche...">
-    </div>
-
-    <!-- Filtres -->
-    <div style="margin-top:10px;">
-      <button onclick="filterTasks('all')">Toutes</button>
-      <button onclick="filterTasks('active')">À faire</button>
-      <button onclick="filterTasks('completed')">Terminées</button>
-    </div>
-
-    <!-- Compteur -->
-    <p id="taskCounter" style="margin-top:10px; font-weight:bold;">0 tâche à faire</p>
-
-    <ul id="taskList"></ul>
-
-    <!-- Nouveaux contrôles -->
-    <div class="controls">
-      <button onclick="clearCompleted()">🧹 Supprimer terminées</button>
-      <button onclick="markAllCompleted()">✔️ Tout terminer</button>
-    </div>
-
-    <a href="index.html" class="back-home-button">Retour à l'accueil</a>
+  <!-- Filtres -->
+  <div style="margin-top:10px;">
+    <button onclick="filterTasks('all')">Toutes</button>
+    <button onclick="filterTasks('active')">À faire</button>
+    <button onclick="filterTasks('completed')">Terminées</button>
   </div>
 
-  <script src="assets/js/todo.js"></script>
+  <!-- Compteur -->
+  <p id="taskCounter" style="margin-top:10px; font-weight:bold;">0 tâche à faire</p>
 
+  <!-- Barre de recherche -->
+  <input type="text" id="searchInput" placeholder="Rechercher une tâche..." style="margin-top:10px; width:80%; padding:8px; border-radius:5px;">
+
+  <ul id="taskList"></ul>
+
+  <button onclick="clearCompleted()">🧹 Supprimer terminées</button>
+
+  <br><br>
+  <a href="index.html" class="back-home-button">Retour à l'accueil</a>
+</div>
+
+
+  <script src="assets/js/todo.js"></script>
 </body>
 
 

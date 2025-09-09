@@ -12,7 +12,7 @@ window.onload = () => {
   updateCounter();
 };
 
-// Ajout d'une tâche
+// Ajouter une tâche
 function addTask() {
   const taskText = taskInput.value.trim();
   const dueDate = taskDate.value;
@@ -26,7 +26,7 @@ function addTask() {
   taskDate.value = "";
 }
 
-// Création d'un élément tâche
+// Créer un élément de tâche
 function createTaskElement(text, dueDate, completed) {
   const li = document.createElement("li");
 
@@ -42,7 +42,6 @@ function createTaskElement(text, dueDate, completed) {
     }
   }
 
-  // Toggle terminé
   span.onclick = () => {
     li.classList.toggle("completed");
     saveTasks();
@@ -55,9 +54,8 @@ function createTaskElement(text, dueDate, completed) {
   editBtn.classList.add("edit");
   editBtn.onclick = () => {
     const newText = prompt("Modifier la tâche :", text);
-    const newDate = prompt("Modifier la date (YYYY-MM-DD) :", dueDate || "");
-    if (newText !== null && newText.trim() !== "") {
-      span.textContent = newText + (newDate ? ` (📅 ${newDate})` : "");
+    if (newText) {
+      span.textContent = newText + (dueDate ? ` (📅 ${dueDate})` : "");
       saveTasks();
     }
   };
@@ -78,7 +76,7 @@ function createTaskElement(text, dueDate, completed) {
   taskList.appendChild(li);
 }
 
-// Sauvegarde les tâches dans le localStorage
+// Sauvegarder les tâches
 function saveTasks() {
   const tasks = [];
   document.querySelectorAll("#taskList li").forEach(li => {
@@ -104,23 +102,24 @@ function saveTasks() {
   loadTasks(); // recharger pour appliquer le tri
 }
 
-// Recharge les tâches
+// Charger les tâches
 function loadTasks() {
   taskList.innerHTML = "";
   const tasks = JSON.parse(localStorage.getItem("tasks")) || [];
   tasks.forEach(task => createTaskElement(task.text, task.dueDate, task.completed));
   updateCounter();
+
   filterTasks(currentFilter);
 }
 
-// Mise à jour du compteur
+// Compteur
 function updateCounter() {
   const tasks = document.querySelectorAll("#taskList li");
   const remaining = [...tasks].filter(li => !li.classList.contains("completed")).length;
   taskCounter.textContent = `${remaining} tâche${remaining > 1 ? "s" : ""} à faire`;
 }
 
-// Filtrer les tâches
+// Filtres
 function filterTasks(filter) {
   currentFilter = filter;
   const tasks = document.querySelectorAll("#taskList li");
@@ -137,23 +136,14 @@ function filterTasks(filter) {
   });
 }
 
-// Supprimer toutes les tâches terminées avec confirmation
+// Supprimer toutes les tâches terminées
 function clearCompleted() {
-  if (confirm("Voulez-vous vraiment supprimer toutes les tâches terminées ?")) {
-    document.querySelectorAll("#taskList li.completed").forEach(li => li.remove());
-    saveTasks();
-    updateCounter();
-  }
-}
-
-// Tout marquer comme terminé
-function markAllCompleted() {
-  document.querySelectorAll("#taskList li").forEach(li => li.classList.add("completed"));
+  document.querySelectorAll("#taskList li.completed").forEach(li => li.remove());
   saveTasks();
   updateCounter();
 }
 
-// Recherche en temps réel
+// Recherche dynamique
 searchInput.addEventListener("input", () => {
   const query = searchInput.value.toLowerCase();
   document.querySelectorAll("#taskList li").forEach(li => {
