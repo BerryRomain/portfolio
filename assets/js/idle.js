@@ -39,6 +39,18 @@ function checkAchievements() {
   state.achievements = list;
 }
 
+function saveGame() {
+  localStorage.setItem("idleGameSave", JSON.stringify(state));
+}
+
+function loadGame() {
+  const data = localStorage.getItem("idleGameSave");
+  if (data) {
+    const saved = JSON.parse(data);
+    Object.assign(state, saved);
+  }
+}
+
 function render() {
   els.games.textContent = state.games;
   els.fans.textContent = state.fans;
@@ -56,6 +68,7 @@ function render() {
         state.money -= upg.cost;
         upg.effect();
         upg.cost = Math.floor(upg.cost * 1.3);
+        saveGame();
         render();
       }
     };
@@ -72,6 +85,8 @@ function render() {
   });
 
   els.prestigeBtn.disabled = state.games < 1000;
+
+  saveGame();
 }
 
 els.makeGame.addEventListener("click", () => {
@@ -83,7 +98,7 @@ els.makeGame.addEventListener("click", () => {
 els.prestigeBtn.addEventListener("click", () => {
   if (state.games >= 1000) {
     state.prestige += 1;
-    state.multiplier += 0.5; // Chaque prestige augmente le multiplicateur global
+    state.multiplier += 0.5;
     // Reset soft
     state.games = 0;
     state.money = 0;
@@ -105,4 +120,9 @@ setInterval(() => {
   }
 }, 1000);
 
+// Sauvegarde toutes les 5 secondes
+setInterval(saveGame, 5000);
+
+// Chargement au démarrage
+loadGame();
 render();
