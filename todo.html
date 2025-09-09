@@ -17,7 +17,7 @@
       margin-bottom: 20px;
     }
 
-    .todo-container {
+    .todo-container {   
       background: white;
       padding: 20px;
       border-radius: 10px;
@@ -92,16 +92,28 @@
 </head>
 <body>
   <h1>📝 To-Do List</h1>
-  <div class="todo-container">
-    <input type="text" id="taskInput" placeholder="Nouvelle tâche...">
-    <input type="date" id="taskDate">
-    <button onclick="addTask()">Ajouter</button>
+<div class="todo-container">
+  <input type="text" id="taskInput" placeholder="Nouvelle tâche...">
+  <input type="date" id="taskDate">
+  <button onclick="addTask()">Ajouter</button>
 
-    <ul id="taskList"></ul>
-
-    <a href="index.html" class="back-home-button">Retour à l'accueil</a>
+  <!-- Filtres -->
+  <div style="margin-top:10px;">
+    <button onclick="filterTasks('all')">Toutes</button>
+    <button onclick="filterTasks('active')">À faire</button>
+    <button onclick="filterTasks('completed')">Terminées</button>
   </div>
+
+  <!-- Compteur -->
+  <p id="taskCounter" style="margin-top:10px; font-weight:bold;">0 tâche à faire</p>
+
+  <ul id="taskList"></ul>
+
+  <a href="index.html" class="back-home-button">Retour à l'accueil</a>
+</div>
+
 
   <script src="assets/js/todo.js"></script>
 </body>
 </html>
+
