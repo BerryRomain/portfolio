@@ -21,7 +21,7 @@
       background: white;
       padding: 20px;
       border-radius: 10px;
-      max-width: 450px;
+      max-width: 500px;
       margin: auto;
       box-shadow: 0 4px 10px rgba(0,0,0,0.1);
     }
@@ -33,11 +33,11 @@
     }
 
     input[type="text"] {
-      width: 50%;
+      width: 45%;
     }
 
     input[type="date"] {
-      width: 35%;
+      width: 30%;
     }
 
     button {
@@ -88,6 +88,17 @@
     .delete:hover {
       background: darkred;
     }
+
+    .edit {
+      background: orange;
+      padding: 5px 10px;
+      border-radius: 5px;
+      margin-right: 5px;
+    }
+
+    .edit:hover {
+      background: darkorange;
+    }
   </style>
 </head>
 <body>
@@ -107,13 +118,21 @@
   <!-- Compteur -->
   <p id="taskCounter" style="margin-top:10px; font-weight:bold;">0 tâche à faire</p>
 
+  <!-- Barre de recherche -->
+  <input type="text" id="searchInput" placeholder="Rechercher une tâche..." style="margin-top:10px; width:80%; padding:8px; border-radius:5px;">
+
   <ul id="taskList"></ul>
 
+  <button onclick="clearCompleted()">🧹 Supprimer terminées</button>
+
+  <br><br>
   <a href="index.html" class="back-home-button">Retour à l'accueil</a>
 </div>
 
 
   <script src="assets/js/todo.js"></script>
 </body>
+
+
 </html>
 

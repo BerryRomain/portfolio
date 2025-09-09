@@ -2,6 +2,7 @@ const taskInput = document.getElementById("taskInput");
 const taskDate = document.getElementById("taskDate");
 const taskList = document.getElementById("taskList");
 const taskCounter = document.getElementById("taskCounter");
+const searchInput = document.getElementById("searchInput");
 
 let currentFilter = "all";
 
@@ -11,6 +12,7 @@ window.onload = () => {
   updateCounter();
 };
 
+// Ajouter une tâche
 function addTask() {
   const taskText = taskInput.value.trim();
   const dueDate = taskDate.value;
@@ -24,6 +26,7 @@ function addTask() {
   taskDate.value = "";
 }
 
+// Créer un élément de tâche
 function createTaskElement(text, dueDate, completed) {
   const li = document.createElement("li");
 
@@ -45,6 +48,19 @@ function createTaskElement(text, dueDate, completed) {
     updateCounter();
   };
 
+  // Bouton édition
+  const editBtn = document.createElement("button");
+  editBtn.textContent = "✏️";
+  editBtn.classList.add("edit");
+  editBtn.onclick = () => {
+    const newText = prompt("Modifier la tâche :", text);
+    if (newText) {
+      span.textContent = newText + (dueDate ? ` (📅 ${dueDate})` : "");
+      saveTasks();
+    }
+  };
+
+  // Bouton suppression
   const deleteBtn = document.createElement("button");
   deleteBtn.textContent = "❌";
   deleteBtn.classList.add("delete");
@@ -55,11 +71,12 @@ function createTaskElement(text, dueDate, completed) {
   };
 
   li.appendChild(span);
+  li.appendChild(editBtn);
   li.appendChild(deleteBtn);
   taskList.appendChild(li);
 }
 
-// Sauvegarde les tâches dans le localStorage
+// Sauvegarder les tâches
 function saveTasks() {
   const tasks = [];
   document.querySelectorAll("#taskList li").forEach(li => {
@@ -85,26 +102,24 @@ function saveTasks() {
   loadTasks(); // recharger pour appliquer le tri
 }
 
-
+// Charger les tâches
 function loadTasks() {
   taskList.innerHTML = "";
   const tasks = JSON.parse(localStorage.getItem("tasks")) || [];
   tasks.forEach(task => createTaskElement(task.text, task.dueDate, task.completed));
   updateCounter();
 
-  // appliquer le filtre actif
   filterTasks(currentFilter);
 }
 
-
-// Mettre à jour le compteur
+// Compteur
 function updateCounter() {
   const tasks = document.querySelectorAll("#taskList li");
   const remaining = [...tasks].filter(li => !li.classList.contains("completed")).length;
   taskCounter.textContent = `${remaining} tâche${remaining > 1 ? "s" : ""} à faire`;
 }
 
-// Filtrer les tâches
+// Filtres
 function filterTasks(filter) {
   currentFilter = filter;
   const tasks = document.querySelectorAll("#taskList li");
@@ -120,3 +135,19 @@ function filterTasks(filter) {
     }
   });
 }
+
+// Supprimer toutes les tâches terminées
+function clearCompleted() {
+  document.querySelectorAll("#taskList li.completed").forEach(li => li.remove());
+  saveTasks();
+  updateCounter();
+}
+
+// Recherche dynamique
+searchInput.addEventListener("input", () => {
+  const query = searchInput.value.toLowerCase();
+  document.querySelectorAll("#taskList li").forEach(li => {
+    const text = li.querySelector("span").textContent.toLowerCase();
+    li.style.display = text.includes(query) ? "flex" : "none";
+  });
+});
