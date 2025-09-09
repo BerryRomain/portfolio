@@ -85,13 +85,17 @@ function saveTasks() {
   loadTasks(); // recharger pour appliquer le tri
 }
 
-// Recharge les tâches depuis le localStorage
+
 function loadTasks() {
   taskList.innerHTML = "";
   const tasks = JSON.parse(localStorage.getItem("tasks")) || [];
   tasks.forEach(task => createTaskElement(task.text, task.dueDate, task.completed));
   updateCounter();
+
+  // appliquer le filtre actif
+  filterTasks(currentFilter);
 }
+
 
 // Mettre à jour le compteur
 function updateCounter() {
