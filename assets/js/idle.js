@@ -1,5 +1,5 @@
 document.addEventListener("DOMContentLoaded", () => {
-  const LS_KEY = "videoGameEmpire_v7";
+  const LS_KEY = "videoGameEmpire_v8";
   const PRESTIGE_THRESHOLD = 10000;
 
   // --- État initial ---
@@ -25,7 +25,8 @@ document.addEventListener("DOMContentLoaded", () => {
       upgrades: [
         { required: 10, newRate: 0.2, costFans: 50, purchased: false },
         { required: 50, newRate: 0.3, costFans: 200, purchased: false },
-      ]
+        { required: 100, newRate: 0.5, costFans: 500, purchased: false },
+      ],
     },
     {
       id: "studio",
@@ -37,8 +38,45 @@ document.addEventListener("DOMContentLoaded", () => {
       upgrades: [
         { required: 5, newRate: 1.5, costFans: 100, purchased: false },
         { required: 25, newRate: 2, costFans: 300, purchased: false },
-      ]
-    }
+        { required: 50, newRate: 3, costFans: 700, purchased: false },
+      ],
+    },
+    {
+      id: "devTeam",
+      name: "Équipe de dev",
+      baseCost: 130,
+      cost: 130,
+      count: 0,
+      rate: 5,
+      upgrades: [
+        { required: 3, newRate: 7, costFans: 300, purchased: false },
+        { required: 10, newRate: 10, costFans: 800, purchased: false },
+      ],
+    },
+    {
+      id: "publisher",
+      name: "Grand éditeur",
+      baseCost: 500,
+      cost: 500,
+      count: 0,
+      rate: 20,
+      upgrades: [
+        { required: 2, newRate: 30, costFans: 500, purchased: false },
+        { required: 5, newRate: 50, costFans: 1200, purchased: false },
+      ],
+    },
+    {
+      id: "franchise",
+      name: "Franchise à succès",
+      baseCost: 2000,
+      cost: 2000,
+      count: 0,
+      rate: 100,
+      upgrades: [
+        { required: 1, newRate: 150, costFans: 1000, purchased: false },
+        { required: 3, newRate: 200, costFans: 3000, purchased: false },
+      ],
+    },
   ];
 
   const $ = id => document.getElementById(id);
@@ -59,7 +97,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // --- Calcul total rate ---
   function totalRate() {
-    return producers.reduce((sum, p) => sum + (p.count * p.rate), 0);
+    return producers.reduce((sum, p) => sum + p.count * p.rate, 0);
   }
 
   // --- Vérification achievements ---
@@ -81,8 +119,8 @@ document.addEventListener("DOMContentLoaded", () => {
         id: p.id,
         cost: p.cost,
         count: p.count,
-        upgrades: p.upgrades.map(u => ({ purchased: u.purchased }))
-      }))
+        upgrades: p.upgrades.map(u => ({ purchased: u.purchased })),
+      })),
     };
     localStorage.setItem(LS_KEY, JSON.stringify(data));
   }
@@ -120,8 +158,9 @@ document.addEventListener("DOMContentLoaded", () => {
     topRow.appendChild(label);
 
     const buyBtn = document.createElement("button");
-    buyBtn.className = "buy-btn"; // ✅ correction
+
     buyBtn.textContent = "Acheter";
+
     buyBtn.addEventListener("click", () => {
       if (state.money >= prod.cost) {
         state.money -= prod.cost;
@@ -163,14 +202,15 @@ document.addEventListener("DOMContentLoaded", () => {
     els.money.textContent = Math.floor(state.money);
     els.fans.textContent = Math.floor(state.fans);
     els.prestige.textContent = state.prestige;
-    els.perClick.textContent = state.perClick;
-    els.perSecond.textContent = totalRate().toFixed(1);
+
+    els.perClick.textContent = `${state.perClick} (x${state.multiplier.toFixed(2)} pour ce prestige)`;
+    els.perSecond.textContent = `${totalRate().toFixed(1)} (x${state.multiplier.toFixed(2)} pour ce prestige)`;
 
     // MAJ producteurs et upgrades
     producers.forEach(prod => {
       const li = els.upgrades.querySelector(`li[data-id=${prod.id}]`);
       const label = li.querySelector(".label");
-      const buyBtn = li.querySelector(".buy-btn"); // ✅ correction
+      const buyBtn = li.querySelector("button");
 
       label.textContent = `${prod.name} — coût : $${Math.floor(prod.cost)} — possédé : ${prod.count} — Prod/unité : ${prod.rate}/s`;
       buyBtn.disabled = state.money < prod.cost;
@@ -203,7 +243,7 @@ document.addEventListener("DOMContentLoaded", () => {
       ? `Prestige disponible — clique pour +0.5x permanent`
       : `Prestige à ${PRESTIGE_THRESHOLD} jeux (actuellement ${Math.floor(state.games)})`;
 
-    els.perClick.textContent = `${state.perClick} (x${state.multiplier.toFixed(2)} pour ce prestige)`;
+      
   }
 
   // --- Clic principal ---
@@ -277,3 +317,4 @@ document.addEventListener("DOMContentLoaded", () => {
   window.gameDebug = () => ({ state, producers });
   window.forceRender = () => render();
 });
+
