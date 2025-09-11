@@ -1,6 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
   const LS_KEY = "videoGameEmpire_final";
-  const PRESTIGE_THRESHOLD = 10000;
+  let PRESTIGE_THRESHOLD = 10000; // <- devient modifiable après chaque prestige
 
   // --- État initial ---
   const state = {
@@ -25,7 +25,7 @@ document.addEventListener("DOMContentLoaded", () => {
       cost: 20,
       count: 0,
       rate: 0.1,
-
+      
       upgrades: [
         { required: 10, newRate: 0.2, costFans: 50, purchased: false },
         { required: 50, newRate: 0.3, costFans: 200, purchased: false },
@@ -195,9 +195,7 @@ document.addEventListener("DOMContentLoaded", () => {
         saveGame();
       }
     });
-    topRow.appendChild(buyBtn
-
-    );
+    topRow.appendChild(buyBtn);
     li.appendChild(topRow);
 
     const subList = document.createElement("div");
@@ -271,10 +269,10 @@ document.addEventListener("DOMContentLoaded", () => {
         const u = prod.upgrades[idx];
         const prevPurchased = idx === 0 || prod.upgrades[idx - 1].purchased;
         if (u.purchased) {
-          btn.textContent = `Upgrade ${idx+1} acheté`;
+          btn.textContent = `Upgrade ${idx + 1} acheté`;
           btn.disabled = true;
         } else {
-          btn.textContent = `Upgrade ${idx+1} (${u.newRate}/s) — ${u.costFans} fans`;
+          btn.textContent = `Upgrade ${idx + 1} (${u.newRate}/s) — ${u.costFans} fans`;
           btn.disabled = !(state.fans >= u.costFans && prod.count >= u.required && prevPurchased);
         }
       });
@@ -286,10 +284,10 @@ document.addEventListener("DOMContentLoaded", () => {
       const btn = li.querySelector("button");
       const prevPurchased = idx === 0 || clickUpgrades[idx - 1].purchased;
       if (u.purchased) {
-        btn.textContent = `Upgrade ${idx+1} acheté`;
+        btn.textContent = `Upgrade ${idx + 1} acheté`;
         btn.disabled = true;
       } else {
-        btn.textContent = `Upgrade ${idx+1} (+${u.extraGain}/clic, +${u.critChanceBonus}% critique) — ${u.requiredClicks} clics requis`;
+        btn.textContent = `Upgrade ${idx + 1} (+${u.extraGain}/clic, +${u.critChanceBonus}% critique) — ${u.requiredClicks} clics requis`;
         btn.disabled = !(state.totalClicks >= u.requiredClicks && prevPurchased);
       }
     });
@@ -332,11 +330,18 @@ document.addEventListener("DOMContentLoaded", () => {
       state.games = 0;
       state.money = 0;
       state.fans = 0;
+
+      // Reset producteurs et appliquer multiplicateur de prestige
       producers.forEach(p => {
         p.count = 0;
         p.cost = p.baseCost;
         p.upgrades.forEach(u => u.purchased = false);
+        p.rate *= state.multiplier; // <- applique le multiplicateur
       });
+
+      // Augmenter le seuil pour le prochain prestige
+      PRESTIGE_THRESHOLD = Math.floor(PRESTIGE_THRESHOLD * 1.5);
+
       render();
       saveGame();
     }
@@ -359,8 +364,9 @@ document.addEventListener("DOMContentLoaded", () => {
       p.count = 0;
       p.cost = p.baseCost;
       p.upgrades.forEach(u => u.purchased = false);
+      p.rate = p.rate / state.multiplier; // remettre à la valeur de base
     });
-    clickUpgrades.forEach(u => u.purchased = false);
+    clickUpgrades.forEach(u => (u.purchased = false));
     render();
     saveGame();
   });
@@ -386,6 +392,6 @@ document.addEventListener("DOMContentLoaded", () => {
   render();
   requestAnimationFrame(loop);
 
-  
+
 });
 
