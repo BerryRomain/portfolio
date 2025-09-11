@@ -2,7 +2,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const LS_KEY = "videoGameEmpire_v7";
   const PRESTIGE_THRESHOLD = 10000;
 
-  
+
   const state = {
     games: 0,
     fans: 0,
@@ -150,20 +150,18 @@ document.addEventListener("DOMContentLoaded", () => {
     els.money.textContent = Math.floor(state.money);
     els.fans.textContent = Math.floor(state.fans);
     els.prestige.textContent = state.prestige;
-
-    els.perSecond.textContent = totalRate().toFixed(1);
-
     els.perClick.textContent = `${state.perClick} (x${state.multiplier.toFixed(2)} pour ce prestige)`;
+    els.perSecond.textContent = totalRate().toFixed(1);
 
 
     els.upgrades.innerHTML = "";
+
     producers.forEach(prod => {
       const li = document.createElement("li");
       li.style.display = "flex";
-
+      li.style.gap = "12px";
       li.style.flexDirection = "column";
 
-      li.style.gap = "6px";
 
       const topRow = document.createElement("div");
       topRow.style.display = "flex";
@@ -190,15 +188,17 @@ document.addEventListener("DOMContentLoaded", () => {
       topRow.appendChild(buyBtn);
       li.appendChild(topRow);
 
-      // Upgrades dynamiques
+
       prod.upgrades.forEach((u, idx) => {
         const upBtn = document.createElement("button");
         upBtn.style.fontSize = "13px";
+
+        const prevPurchased = idx === 0 || prod.upgrades[idx - 1].purchased;
         if (u.purchased) {
           upBtn.textContent = `Upgrade ${idx + 1} acheté`;
           upBtn.disabled = true;
         } else {
-          const prevPurchased = idx === 0 || prod.upgrades[idx - 1].purchased;
+          
           upBtn.textContent = `Upgrade ${idx + 1} (${u.newRate}/s) — ${u.costFans} fans`;
           upBtn.disabled = !(state.fans >= u.costFans && prod.count >= u.required && prevPurchased);
           upBtn.addEventListener("click", () => {
@@ -206,11 +206,12 @@ document.addEventListener("DOMContentLoaded", () => {
               state.fans -= u.costFans;
               prod.rate = u.newRate;
               u.purchased = true;
-              render(); // **recalcul du prevPurchased dans render()**
+              render();
               saveGame();
             }
           });
         }
+
         li.appendChild(upBtn);
       });
 
@@ -257,6 +258,7 @@ document.addEventListener("DOMContentLoaded", () => {
         p.count = 0;
         p.cost = p.baseCost;
         p.upgrades.forEach(u => u.purchased = false);
+        p.rate = p.upgrades.length ? p.upgrades[0].newRate / 2 : p.rate; // Reset rate si besoin
       });
       render();
       saveGame();
