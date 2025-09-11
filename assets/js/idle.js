@@ -1,7 +1,8 @@
 document.addEventListener("DOMContentLoaded", () => {
-  const LS_KEY = "videoGameEmpire_v3";
+  const LS_KEY = "videoGameEmpire_v4";
   const PRESTIGE_THRESHOLD = 10000;
 
+  // --- Etat du jeu ---
   const state = {
     games: 0,
     fans: 0,
@@ -12,6 +13,7 @@ document.addEventListener("DOMContentLoaded", () => {
     achievements: [],
   };
 
+  // --- Producteurs / upgrades ---
   const producers = [
     { id: "marketing", name: "Campagne marketing", baseCost: 20, cost: 20, count: 0, rate: 0.1 },
     { id: "studio", name: "Meilleur studio", baseCost: 65, cost: 65, count: 0, rate: 1 },
@@ -20,6 +22,7 @@ document.addEventListener("DOMContentLoaded", () => {
     { id: "franchise", name: "Franchise à succès", baseCost: 2000, cost: 2000, count: 0, rate: 100 },
   ];
 
+  // --- Sélecteurs DOM ---
   const $ = id => document.getElementById(id);
   const els = {
     games: $("games"),
@@ -36,6 +39,11 @@ document.addEventListener("DOMContentLoaded", () => {
     resetBtn: $("resetBtn"),
   };
 
+  // --- Fonctions utilitaires ---
+  function totalRate() {
+    return producers.reduce((sum, p) => sum + (p.count * p.rate), 0);
+  }
+
   function checkAchievements() {
     const list = [];
     if (state.games >= 10) list.push("10 jeux créés");
@@ -44,10 +52,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (state.fans >= 500) list.push("500 fans");
     if (totalRate() >= 50) list.push("50 jeux/s");
     state.achievements = list;
-  }
-
-  function totalRate() {
-    return producers.reduce((sum, p) => sum + (p.count * p.rate), 0);
   }
 
   function saveGame() {
@@ -74,6 +78,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // --- Render / affichage ---
   function render() {
     els.games.textContent = Math.floor(state.games);
     els.money.textContent = Math.floor(state.money);
@@ -98,22 +103,13 @@ document.addEventListener("DOMContentLoaded", () => {
       btn.type = "button";
       btn.textContent = "Acheter";
       btn.disabled = state.money < prod.cost;
-      btn.addEventListener("click", () => {
-        if (state.money >= prod.cost) {
-          state.money -= prod.cost;
-          prod.count++;
-          prod.cost = Math.floor(prod.baseCost * Math.pow(1.15, prod.count));
-          render();
-          saveGame();
-        }
-      });
 
       li.appendChild(label);
       li.appendChild(btn);
       els.upgrades.appendChild(li);
     });
 
-    // Succès
+    // Achievements
     checkAchievements();
     els.achievements.innerHTML = "";
     state.achievements.forEach(a => {
@@ -130,7 +126,7 @@ document.addEventListener("DOMContentLoaded", () => {
       : `Prestige à ${PRESTIGE_THRESHOLD} jeux (actuellement ${Math.floor(state.games)})`;
   }
 
-  // Clic principal
+  // --- Clic principal ---
   els.makeGame.addEventListener("click", () => {
     const gain = state.perClick * state.multiplier;
     state.games += gain;
@@ -139,7 +135,22 @@ document.addEventListener("DOMContentLoaded", () => {
     saveGame();
   });
 
-  // Prestige
+  // --- Gestion des achats (delegation) ---
+  els.upgrades.addEventListener("click", (e) => {
+    if (e.target.tagName !== "BUTTON") return;
+    const index = Array.from(els.upgrades.children).indexOf(e.target.parentElement);
+    const prod = producers[index];
+    if (!prod) return;
+    if (state.money >= prod.cost) {
+      state.money -= prod.cost;
+      prod.count++;
+      prod.cost = Math.floor(prod.baseCost * Math.pow(1.15, prod.count));
+      render();
+      saveGame();
+    }
+  });
+
+  // --- Prestige ---
   els.prestigeBtn.addEventListener("click", () => {
     if (state.games >= PRESTIGE_THRESHOLD) {
       state.prestige++;
@@ -156,7 +167,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Reset complet
+  // --- Reset complet ---
   els.resetBtn.addEventListener("click", () => {
     if (!confirm("Reset complet : tout sera perdu (y compris le prestige).")) return;
     localStorage.removeItem(LS_KEY);
@@ -174,7 +185,7 @@ document.addEventListener("DOMContentLoaded", () => {
     saveGame();
   });
 
-  // Boucle de production fluide
+  // --- Boucle de production fluide ---
   let last = performance.now();
   function loop(now) {
     const delta = (now - last) / 1000;
@@ -189,8 +200,8 @@ document.addEventListener("DOMContentLoaded", () => {
     saveGame();
     requestAnimationFrame(loop);
   }
-  
 
+  // --- Initialisation ---
   loadGame();
   render();
   requestAnimationFrame(loop);
