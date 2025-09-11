@@ -1,8 +1,8 @@
 document.addEventListener("DOMContentLoaded", () => {
-  const LS_KEY = "videoGameEmpire_v8";
+  const LS_KEY = "videoGameEmpire_final";
   const PRESTIGE_THRESHOLD = 10000;
 
-  // --- État initial ---
+  
   const state = {
     games: 0,
     fans: 0,
@@ -13,7 +13,7 @@ document.addEventListener("DOMContentLoaded", () => {
     achievements: [],
   };
 
-  // --- Producteurs ---
+
   const producers = [
     {
       id: "marketing",
@@ -24,9 +24,8 @@ document.addEventListener("DOMContentLoaded", () => {
       rate: 0.1,
       upgrades: [
         { required: 10, newRate: 0.2, costFans: 50, purchased: false },
-        { required: 50, newRate: 0.3, costFans: 200, purchased: false },
-        { required: 100, newRate: 0.5, costFans: 500, purchased: false },
-      ],
+        { required: 50, newRate: 0.3, costFans: 200, purchased: false }
+      ]
     },
     {
       id: "studio",
@@ -37,9 +36,8 @@ document.addEventListener("DOMContentLoaded", () => {
       rate: 1,
       upgrades: [
         { required: 5, newRate: 1.5, costFans: 100, purchased: false },
-        { required: 25, newRate: 2, costFans: 300, purchased: false },
-        { required: 50, newRate: 3, costFans: 700, purchased: false },
-      ],
+        { required: 25, newRate: 2, costFans: 300, purchased: false }
+      ]
     },
     {
       id: "devTeam",
@@ -50,8 +48,8 @@ document.addEventListener("DOMContentLoaded", () => {
       rate: 5,
       upgrades: [
         { required: 3, newRate: 7, costFans: 300, purchased: false },
-        { required: 10, newRate: 10, costFans: 800, purchased: false },
-      ],
+        { required: 10, newRate: 10, costFans: 800, purchased: false }
+      ]
     },
     {
       id: "publisher",
@@ -62,8 +60,8 @@ document.addEventListener("DOMContentLoaded", () => {
       rate: 20,
       upgrades: [
         { required: 2, newRate: 30, costFans: 500, purchased: false },
-        { required: 5, newRate: 50, costFans: 1200, purchased: false },
-      ],
+        { required: 5, newRate: 50, costFans: 1200, purchased: false }
+      ]
     },
     {
       id: "franchise",
@@ -74,9 +72,9 @@ document.addEventListener("DOMContentLoaded", () => {
       rate: 100,
       upgrades: [
         { required: 1, newRate: 150, costFans: 1000, purchased: false },
-        { required: 3, newRate: 200, costFans: 3000, purchased: false },
-      ],
-    },
+        { required: 3, newRate: 200, costFans: 3000, purchased: false }
+      ]
+    }
   ];
 
   const $ = id => document.getElementById(id);
@@ -92,15 +90,15 @@ document.addEventListener("DOMContentLoaded", () => {
     achievements: $("achievements"),
     perClick: $("perClick"),
     perSecond: $("perSecond"),
-    resetBtn: $("resetBtn"),
+    resetBtn: $("resetBtn")
   };
 
   // --- Calcul total rate ---
   function totalRate() {
-    return producers.reduce((sum, p) => sum + p.count * p.rate, 0);
+    return producers.reduce((sum, p) => sum + (p.count * p.rate), 0);
   }
 
-  // --- Vérification achievements ---
+  // --- Achievements ---
   function checkAchievements() {
     const list = [];
     if (state.games >= 10) list.push("10 jeux créés");
@@ -111,7 +109,7 @@ document.addEventListener("DOMContentLoaded", () => {
     state.achievements = list;
   }
 
-  // --- Sauvegarde et chargement ---
+  // --- Sauvegarde / Chargement ---
   function saveGame() {
     const data = {
       state,
@@ -119,8 +117,8 @@ document.addEventListener("DOMContentLoaded", () => {
         id: p.id,
         cost: p.cost,
         count: p.count,
-        upgrades: p.upgrades.map(u => ({ purchased: u.purchased })),
-      })),
+        upgrades: p.upgrades.map(u => ({ purchased: u.purchased }))
+      }))
     };
     localStorage.setItem(LS_KEY, JSON.stringify(data));
   }
@@ -144,7 +142,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // --- Construction initiale des producteurs + boutons ---
+  // --- Construction initiale UI producteurs ---
   producers.forEach(prod => {
     const li = document.createElement("li");
     li.dataset.id = prod.id;
@@ -206,7 +204,7 @@ document.addEventListener("DOMContentLoaded", () => {
     els.perClick.textContent = `${state.perClick} (x${state.multiplier.toFixed(2)} pour ce prestige)`;
     els.perSecond.textContent = `${totalRate().toFixed(1)} (x${state.multiplier.toFixed(2)} pour ce prestige)`;
 
-    // MAJ producteurs et upgrades
+
     producers.forEach(prod => {
       const li = els.upgrades.querySelector(`li[data-id=${prod.id}]`);
       const label = li.querySelector(".label");
@@ -218,12 +216,12 @@ document.addEventListener("DOMContentLoaded", () => {
       const subList = li.querySelector(".sub-upgrades");
       [...subList.children].forEach((btn, idx) => {
         const u = prod.upgrades[idx];
+        const prevPurchased = idx === 0 || prod.upgrades[idx - 1].purchased;
         if (u.purchased) {
-          btn.textContent = `Upgrade ${idx + 1} acheté`;
+          btn.textContent = `Upgrade ${idx+1} acheté`;
           btn.disabled = true;
         } else {
-          const prevPurchased = idx === 0 || prod.upgrades[idx - 1].purchased;
-          btn.textContent = `Upgrade ${idx + 1} (${u.newRate}/s) — ${u.costFans} fans`;
+          btn.textContent = `Upgrade ${idx+1} (${u.newRate}/s) — ${u.costFans} fans`;
           btn.disabled = !(state.fans >= u.costFans && prod.count >= u.required && prevPurchased);
         }
       });
@@ -241,9 +239,9 @@ document.addEventListener("DOMContentLoaded", () => {
     els.prestigeBtn.disabled = !canPrestige;
     els.prestigeNote.textContent = canPrestige
       ? `Prestige disponible — clique pour +0.5x permanent`
+
       : `Prestige à ${PRESTIGE_THRESHOLD} jeux (actuellement ${Math.floor(state.games)})`;
 
-      
   }
 
   // --- Clic principal ---
@@ -308,13 +306,11 @@ document.addEventListener("DOMContentLoaded", () => {
     requestAnimationFrame(loop);
   }
 
-  // --- Initialisation ---
+
   loadGame();
   render();
   requestAnimationFrame(loop);
 
-  // Helpers debug
-  window.gameDebug = () => ({ state, producers });
-  window.forceRender = () => render();
+
 });
 
