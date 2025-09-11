@@ -1,5 +1,5 @@
 document.addEventListener("DOMContentLoaded", () => {
-  const LS_KEY = "videoGameEmpire_v5";
+  const LS_KEY = "videoGameEmpire_v6";
   const PRESTIGE_THRESHOLD = 10000;
 
   const state = {
@@ -36,6 +36,11 @@ document.addEventListener("DOMContentLoaded", () => {
     resetBtn: $("resetBtn"),
   };
 
+  if (!els.upgrades) {
+    console.error("#upgrades introuvable ! Vérifie que le script est placé après le DOM.");
+    return;
+  }
+
   // Création des boutons une seule fois
   producers.forEach(prod => {
     const li = document.createElement("li");
@@ -54,7 +59,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     els.upgrades.appendChild(li);
 
-    // Attachement de l'event listener
+    
     btn.addEventListener("click", () => {
       if (state.money >= prod.cost) {
         state.money -= prod.cost;
@@ -65,7 +70,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
 
-    // Stockage du label et bouton pour mise à jour dans render()
+
     prod._label = label;
     prod._button = btn;
   });
@@ -116,13 +121,13 @@ document.addEventListener("DOMContentLoaded", () => {
     els.perClick.textContent = state.perClick;
     els.perSecond.textContent = totalRate().toFixed(1);
 
-    // Mise à jour des labels et boutons
+
     producers.forEach(prod => {
       prod._label.textContent = `${prod.name} — coût : $${Math.floor(prod.cost)} — possédé : ${prod.count}`;
       prod._button.disabled = state.money < prod.cost;
     });
 
-    // Achievements
+
     checkAchievements();
     els.achievements.innerHTML = "";
     state.achievements.forEach(a => {
@@ -131,7 +136,7 @@ document.addEventListener("DOMContentLoaded", () => {
       els.achievements.appendChild(li);
     });
 
-    // Prestige
+
     const canPrestige = state.games >= PRESTIGE_THRESHOLD;
     els.prestigeBtn.disabled = !canPrestige;
     els.prestigeNote.textContent = canPrestige
@@ -139,7 +144,7 @@ document.addEventListener("DOMContentLoaded", () => {
       : `Prestige à ${PRESTIGE_THRESHOLD} jeux (actuellement ${Math.floor(state.games)})`;
   }
 
-  // Clic principal
+
   els.makeGame.addEventListener("click", () => {
     const gain = state.perClick * state.multiplier;
     state.games += gain;
@@ -148,7 +153,7 @@ document.addEventListener("DOMContentLoaded", () => {
     saveGame();
   });
 
-  // Prestige
+
   els.prestigeBtn.addEventListener("click", () => {
     if (state.games >= PRESTIGE_THRESHOLD) {
       state.prestige++;
@@ -156,34 +161,24 @@ document.addEventListener("DOMContentLoaded", () => {
       state.games = 0;
       state.money = 0;
       state.fans = 0;
-      producers.forEach(p => {
-        p.count = 0;
-        p.cost = p.baseCost;
-      });
+      producers.forEach(p => { p.count = 0; p.cost = p.baseCost; });
       render();
       saveGame();
     }
   });
 
-  // Reset complet
+
   els.resetBtn.addEventListener("click", () => {
     if (!confirm("Reset complet : tout sera perdu (y compris le prestige).")) return;
     localStorage.removeItem(LS_KEY);
-    state.games = 0;
-    state.money = 0;
-    state.fans = 0;
-    state.prestige = 0;
-    state.multiplier = 1;
-    state.perClick = 1;
-    producers.forEach(p => {
-      p.count = 0;
-      p.cost = p.baseCost;
-    });
+    state.games = 0; state.money = 0; state.fans = 0; state.prestige = 0;
+    state.multiplier = 1; state.perClick = 1;
+    producers.forEach(p => { p.count = 0; p.cost = p.baseCost; });
     render();
     saveGame();
   });
 
-  // Boucle de production fluide
+
   let last = performance.now();
   function loop(now) {
     const delta = (now - last) / 1000;
@@ -199,7 +194,7 @@ document.addEventListener("DOMContentLoaded", () => {
     requestAnimationFrame(loop);
   }
 
-  // Initialisation
+
   loadGame();
   render();
   requestAnimationFrame(loop);
