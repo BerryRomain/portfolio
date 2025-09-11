@@ -35,7 +35,8 @@
     button:disabled { background: var(--muted); cursor: not-allowed; }
     h2 { margin-top: 0; font-size: 18px; }
     ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
-    li { display: flex; justify-content: space-between; align-items: center; }
+    li { display: flex; flex-direction: column; gap: 4px; }
+    .sub-upgrades { margin-left: 12px; display: flex; flex-direction: column; gap: 4px; }
     .achievements { margin-top: 12px; font-size: 13px; color: var(--muted); }
     .corner-btn {
       position: fixed;
@@ -92,13 +93,13 @@
     </main>
   </div>
 
-
-
+  <!-- Bouton lien portfolio (bas gauche) -->
   <a id="backPortfolio" class="corner-btn" href="index.html" title="Retour au portfolio">← Portfolio</a>
-  
+
+  <!-- Reset complet (bas droite) -->
   <button id="resetBtn" class="corner-btn" title="Reset complet (supprime la progression)">Reset complet</button>
 
-  <!-- Script placé après le DOM -->
+  <!-- Script principal -->
   <script src="assets/js/idle.js"></script>
 </body>
 </html>
