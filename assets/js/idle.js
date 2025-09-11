@@ -120,6 +120,7 @@ document.addEventListener("DOMContentLoaded", () => {
     topRow.appendChild(label);
 
     const buyBtn = document.createElement("button");
+    buyBtn.className = "buy-btn"; // ✅ correction
     buyBtn.textContent = "Acheter";
     buyBtn.addEventListener("click", () => {
       if (state.money >= prod.cost) {
@@ -162,14 +163,14 @@ document.addEventListener("DOMContentLoaded", () => {
     els.money.textContent = Math.floor(state.money);
     els.fans.textContent = Math.floor(state.fans);
     els.prestige.textContent = state.prestige;
-    els.perClick.textContent = `${state.perClick} (x${state.multiplier.toFixed(2)} pour ce prestige)`;
+    els.perClick.textContent = state.perClick;
     els.perSecond.textContent = totalRate().toFixed(1);
 
     // MAJ producteurs et upgrades
     producers.forEach(prod => {
       const li = els.upgrades.querySelector(`li[data-id=${prod.id}]`);
       const label = li.querySelector(".label");
-      const buyBtn = li.querySelector("button");
+      const buyBtn = li.querySelector(".buy-btn"); // ✅ correction
 
       label.textContent = `${prod.name} — coût : $${Math.floor(prod.cost)} — possédé : ${prod.count} — Prod/unité : ${prod.rate}/s`;
       buyBtn.disabled = state.money < prod.cost;
@@ -201,6 +202,8 @@ document.addEventListener("DOMContentLoaded", () => {
     els.prestigeNote.textContent = canPrestige
       ? `Prestige disponible — clique pour +0.5x permanent`
       : `Prestige à ${PRESTIGE_THRESHOLD} jeux (actuellement ${Math.floor(state.games)})`;
+
+    els.perClick.textContent = `${state.perClick} (x${state.multiplier.toFixed(2)} pour ce prestige)`;
   }
 
   // --- Clic principal ---
