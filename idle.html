@@ -54,18 +54,6 @@
     #backPortfolio { left: 12px; bottom: 12px; }
     #resetBtn { right: 12px; bottom: 12px; }
     .small-muted { font-size: 13px; color: var(--muted); margin-top:8px; }
-
-    .floating {
-      animation: floatUp 1s ease-out forwards;
-      font-weight: bold;
-      color: #8b5cf6;
-      pointer-events: none;
-    }
-
-    @keyframes floatUp {
-      0% { opacity: 1; transform: translateY(0); }
-      100% { opacity: 0; transform: translateY(-50px); }
-    }
   </style>
 </head>
 <body>
@@ -84,7 +72,9 @@
       <div class="panel">
         <h2>Production</h2>
         <button id="makeGame">Créer un jeu 🎮</button>
-        <div class="small-muted">Gain par clic : <span id="perClick">1</span> — Production/s : <span id="perSecond">0</span></div>
+        <div class="small-muted">
+          Gain par clic : <span id="perClick">1</span> — Production/s : <span id="perSecond">0</span>
+        </div>
         <div style="margin-top:12px;">
           <button id="prestigeBtn">Prestige ✨</button>
           <div id="prestigeNote" class="small-muted"></div>
