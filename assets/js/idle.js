@@ -1,7 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
   const LS_KEY = "videoGameEmpire_v7";
   const PRESTIGE_THRESHOLD = 10000;
-
+  
 
   const state = {
     games: 0,
@@ -198,7 +198,7 @@ document.addEventListener("DOMContentLoaded", () => {
           upBtn.textContent = `Upgrade ${idx + 1} acheté`;
           upBtn.disabled = true;
         } else {
-          
+
           upBtn.textContent = `Upgrade ${idx + 1} (${u.newRate}/s) — ${u.costFans} fans`;
           upBtn.disabled = !(state.fans >= u.costFans && prod.count >= u.required && prevPurchased);
           upBtn.addEventListener("click", () => {
