@@ -1,8 +1,8 @@
 document.addEventListener("DOMContentLoaded", () => {
-  const LS_KEY = "videoGameEmpire_v6";
+  const LS_KEY = "videoGameEmpire_v7";
   const PRESTIGE_THRESHOLD = 10000;
 
-  // --- État initial ---
+  
   const state = {
     games: 0,
     fans: 0,
@@ -13,7 +13,7 @@ document.addEventListener("DOMContentLoaded", () => {
     achievements: [],
   };
 
-  // --- Producteurs ---
+  
   const producers = [
     {
       id: "marketing",
@@ -95,12 +95,12 @@ document.addEventListener("DOMContentLoaded", () => {
     resetBtn: $("resetBtn"),
   };
 
-  // --- Calcul total rate ---
+
   function totalRate() {
     return producers.reduce((sum, p) => sum + (p.count * p.rate), 0);
   }
 
-  // --- Vérification achievements ---
+
   function checkAchievements() {
     const list = [];
     if (state.games >= 10) list.push("10 jeux créés");
@@ -111,7 +111,7 @@ document.addEventListener("DOMContentLoaded", () => {
     state.achievements = list;
   }
 
-  // --- Sauvegarde et chargement ---
+
   function saveGame() {
     const data = {
       state,
@@ -144,22 +144,26 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // --- Render ---
+
   function render() {
     els.games.textContent = Math.floor(state.games);
     els.money.textContent = Math.floor(state.money);
     els.fans.textContent = Math.floor(state.fans);
     els.prestige.textContent = state.prestige;
-    els.perClick.textContent = state.perClick;
+
     els.perSecond.textContent = totalRate().toFixed(1);
 
-    // Upgrades UI
+    els.perClick.textContent = `${state.perClick} (x${state.multiplier.toFixed(2)} pour ce prestige)`;
+
+
     els.upgrades.innerHTML = "";
     producers.forEach(prod => {
       const li = document.createElement("li");
       li.style.display = "flex";
-      li.style.gap = "12px";
+
       li.style.flexDirection = "column";
+
+      li.style.gap = "6px";
 
       const topRow = document.createElement("div");
       topRow.style.display = "flex";
@@ -186,7 +190,7 @@ document.addEventListener("DOMContentLoaded", () => {
       topRow.appendChild(buyBtn);
       li.appendChild(topRow);
 
-      // Upgrades pour ce producteur
+      // Upgrades dynamiques
       prod.upgrades.forEach((u, idx) => {
         const upBtn = document.createElement("button");
         upBtn.style.fontSize = "13px";
@@ -202,7 +206,7 @@ document.addEventListener("DOMContentLoaded", () => {
               state.fans -= u.costFans;
               prod.rate = u.newRate;
               u.purchased = true;
-              render();
+              render(); // **recalcul du prevPurchased dans render()**
               saveGame();
             }
           });
@@ -222,18 +226,17 @@ document.addEventListener("DOMContentLoaded", () => {
       els.achievements.appendChild(li);
     });
 
-    // Prestige
+
     const canPrestige = state.games >= PRESTIGE_THRESHOLD;
     els.prestigeBtn.disabled = !canPrestige;
     els.prestigeNote.textContent = canPrestige
       ? `Prestige disponible — clique pour +0.5x permanent`
+
       : `Prestige à ${PRESTIGE_THRESHOLD} jeux (actuellement ${Math.floor(state.games)})`;
 
-    // Affichage du multiplicateur du prestige
-    els.perClick.textContent = `${state.perClick} (x${state.multiplier.toFixed(2)} pour ce prestige)`;
   }
 
-  // --- Clic principal ---
+
   els.makeGame.addEventListener("click", () => {
     const gain = state.perClick * state.multiplier;
     state.games += gain;
@@ -242,7 +245,7 @@ document.addEventListener("DOMContentLoaded", () => {
     saveGame();
   });
 
-  // --- Prestige ---
+
   els.prestigeBtn.addEventListener("click", () => {
     if (state.games >= PRESTIGE_THRESHOLD) {
       state.prestige++;
@@ -260,7 +263,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // --- Reset complet ---
+
   els.resetBtn.addEventListener("click", () => {
     if (!confirm("Reset complet : tout sera perdu (y compris le prestige).")) return;
     localStorage.removeItem(LS_KEY);
@@ -279,7 +282,7 @@ document.addEventListener("DOMContentLoaded", () => {
     saveGame();
   });
 
-  // --- Tick fluide ---
+
   let last = performance.now();
   function loop(now) {
     const delta = (now - last) / 1000;
@@ -295,7 +298,7 @@ document.addEventListener("DOMContentLoaded", () => {
     requestAnimationFrame(loop);
   }
 
-  // --- Initialisation ---
+
   loadGame();
   render();
   requestAnimationFrame(loop);
