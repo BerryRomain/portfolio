@@ -111,7 +111,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return producers.reduce((sum, p) => sum + p.count * p.rate, 0);
   }
 
-  // --- Succès ---
+  // --- Achievements ---
   function checkAchievements() {
     const list = [];
     if (state.games >= 10) list.push("10 jeux créés");
@@ -125,11 +125,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // --- Sauvegarde ---
   function saveGame() {
-    localStorage.setItem(LS_KEY, JSON.stringify({
-      state,
-      producers,
-      clickUpgrades,
-    }));
+    localStorage.setItem(LS_KEY, JSON.stringify({ state, producers, clickUpgrades }));
   }
 
   function loadGame() {
@@ -162,6 +158,7 @@ document.addEventListener("DOMContentLoaded", () => {
     li.appendChild(label);
 
     const buyBtn = document.createElement("button");
+    buyBtn.classList.add("buy-btn");
     buyBtn.textContent = "Acheter";
     buyBtn.addEventListener("click", () => {
       if (state.money >= prod.cost) {
@@ -178,7 +175,7 @@ document.addEventListener("DOMContentLoaded", () => {
     subList.className = "sub-upgrades";
     prod.upgrades.forEach((u, idx) => {
       const upBtn = document.createElement("button");
-      upBtn.dataset.idx = idx;
+      upBtn.classList.add("sub-upgrade-btn");
       upBtn.addEventListener("click", () => {
         const prevPurchased = idx === 0 || prod.upgrades[idx - 1].purchased;
         if (state.fans >= u.costFans && prod.count >= u.required && prevPurchased) {
@@ -200,7 +197,7 @@ document.addEventListener("DOMContentLoaded", () => {
   clickUpgrades.forEach((u, idx) => {
     const li = document.createElement("li");
     const btn = document.createElement("button");
-    btn.dataset.idx = idx;
+    btn.classList.add("click-upgrade-btn");
     btn.addEventListener("click", () => {
       const prevPurchased = idx === 0 || clickUpgrades[idx - 1].purchased;
       if (state.totalClicks >= u.requiredClicks && prevPurchased && !u.purchased) {
@@ -247,39 +244,39 @@ document.addEventListener("DOMContentLoaded", () => {
     producers.forEach(prod => {
       const li = els.upgrades.querySelector(`li[data-id=${prod.id}]`);
       const label = li.querySelector(".label");
-      const buyBtn = li.querySelector("button");
+      const buyBtn = li.querySelector(".buy-btn");
       label.textContent = `${prod.name} — coût : $${Math.floor(prod.cost)} — possédé : ${prod.count} — Prod/unité : ${prod.rate}/s`;
       buyBtn.disabled = state.money < prod.cost;
 
-      const subList = li.querySelector(".sub-upgrades");
-      [...subList.children].forEach((btn, idx) => {
+      const subBtns = li.querySelectorAll(".sub-upgrade-btn");
+      subBtns.forEach((btn, idx) => {
         const u = prod.upgrades[idx];
         const prevPurchased = idx === 0 || prod.upgrades[idx - 1].purchased;
         if (u.purchased) {
-          btn.textContent = `Upgrade ${idx+1} acheté`;
+          btn.textContent = `Upgrade ${idx + 1} acheté`;
           btn.disabled = true;
         } else {
-          btn.textContent = `Upgrade ${idx+1} (${u.newRate}/s) — ${u.costFans} fans`;
+          btn.textContent = `Upgrade ${idx + 1} (${u.newRate}/s) — ${u.costFans} fans`;
           btn.disabled = !(state.fans >= u.costFans && prod.count >= u.required && prevPurchased);
         }
       });
     });
 
     // click upgrades
-    [...els.clickUpgradesList.children].forEach((li, idx) => {
+    const clickBtns = els.clickUpgradesList.querySelectorAll(".click-upgrade-btn");
+    clickBtns.forEach((btn, idx) => {
       const u = clickUpgrades[idx];
-      const btn = li.querySelector("button");
       const prevPurchased = idx === 0 || clickUpgrades[idx - 1].purchased;
       if (u.purchased) {
-        btn.textContent = `Upgrade ${idx+1} acheté`;
+        btn.textContent = `Upgrade ${idx + 1} acheté`;
         btn.disabled = true;
       } else {
-        btn.textContent = `Upgrade ${idx+1} (+${u.extraGain}/clic, +${u.critChanceBonus}% crit) — ${u.requiredClicks} clics`;
+        btn.textContent = `Upgrade ${idx + 1} (+${u.extraGain}/clic, +${u.critChanceBonus}% crit) — ${u.requiredClicks} clics`;
         btn.disabled = !(state.totalClicks >= u.requiredClicks && prevPurchased);
       }
     });
 
-    // succès
+    // achievements
     checkAchievements();
     els.achievements.innerHTML = "";
     state.achievements.forEach(a => {
@@ -303,7 +300,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (Math.random() * 100 < state.critChance) gain *= state.critMultiplier;
     state.games += gain * state.multiplier;
     state.money += gain * state.multiplier;
-    showFloatingText(`+${gain}`, e.pageX, e.pageY);
+    showFloatingText(`+${gain.toFixed(1)}`, e.pageX, e.pageY);
     render();
     saveGame();
   });
