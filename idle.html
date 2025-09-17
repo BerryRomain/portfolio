@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Video Game Empire — Idle Game</title>
+  <title>VG Empire — Idle Game</title>
   <style>
     :root {
       --bg: #0b0f19;
@@ -19,7 +19,6 @@
       background: linear-gradient(180deg, #0b0f19 0%, #111827 60%);
       color: #f9fafb;
       display: flex;
-      
       justify-content: center;
       padding: 24px;
     }
@@ -82,6 +81,9 @@
 
       <!-- Colonne 2 : améliorations -->
       <div class="panel">
+        <h2>Améliorations de clic</h2>
+        <ul id="clickUpgrades"></ul> <!-- <-- ajouté -->
+
         <h2>Améliorations</h2>
         <ul id="upgrades"></ul>
       </div>
@@ -104,7 +106,6 @@
   <a id="backPortfolio" class="corner-btn" href="index.html" title="Retour au portfolio">← Portfolio</a>
 
   <button id="resetBtn" class="corner-btn" title="Reset complet (supprime la progression)">Reset complet</button>
-
 
   <script src="assets/js/idle.js"></script>
 </body>
