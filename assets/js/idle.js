@@ -18,14 +18,69 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // --- Producteurs ---
   const producers = [
-    { id: "marketing", name: "Campagne marketing", baseCost: 20, cost: 20, count: 0, rate: 0.1 },
-    { id: "studio", name: "Meilleur studio", baseCost: 65, cost: 65, count: 0, rate: 1 },
-    { id: "devTeam", name: "Équipe de dev", baseCost: 130, cost: 130, count: 0, rate: 5 },
-    { id: "publisher", name: "Grand éditeur", baseCost: 500, cost: 500, count: 0, rate: 20 },
-    { id: "franchise", name: "Franchise à succès", baseCost: 2000, cost: 2000, count: 0, rate: 100 },
+    {
+      id: "marketing",
+      name: "Campagne marketing",
+      baseCost: 20,
+      cost: 20,
+      count: 0,
+      rate: 0.1,
+      upgrades: [
+        { required: 10, newRate: 0.2, costFans: 50, purchased: false },
+        { required: 50, newRate: 0.3, costFans: 200, purchased: false },
+      ],
+    },
+    {
+      id: "studio",
+      name: "Meilleur studio",
+      baseCost: 65,
+      cost: 65,
+      count: 0,
+      rate: 1,
+      upgrades: [
+        { required: 5, newRate: 1.5, costFans: 100, purchased: false },
+        { required: 25, newRate: 2, costFans: 300, purchased: false },
+      ],
+    },
+    {
+      id: "devTeam",
+      name: "Équipe de dev",
+      baseCost: 130,
+      cost: 130,
+      count: 0,
+      rate: 5,
+      upgrades: [
+        { required: 3, newRate: 7, costFans: 300, purchased: false },
+        { required: 10, newRate: 10, costFans: 800, purchased: false },
+      ],
+    },
+    {
+      id: "publisher",
+      name: "Grand éditeur",
+      baseCost: 500,
+      cost: 500,
+      count: 0,
+      rate: 20,
+      upgrades: [
+        { required: 2, newRate: 30, costFans: 500, purchased: false },
+        { required: 5, newRate: 50, costFans: 1200, purchased: false },
+      ],
+    },
+    {
+      id: "franchise",
+      name: "Franchise à succès",
+      baseCost: 2000,
+      cost: 2000,
+      count: 0,
+      rate: 100,
+      upgrades: [
+        { required: 1, newRate: 150, costFans: 1000, purchased: false },
+        { required: 3, newRate: 200, costFans: 3000, purchased: false },
+      ],
+    },
   ];
 
-  // --- Améliorations de clic ---
+  // --- Upgrades du clic ---
   const clickUpgrades = [
     { requiredClicks: 50, extraGain: 1, critChanceBonus: 2, purchased: false },
     { requiredClicks: 200, extraGain: 2, critChanceBonus: 3, purchased: false },
@@ -33,7 +88,7 @@ document.addEventListener("DOMContentLoaded", () => {
     { requiredClicks: 1000, extraGain: 10, critChanceBonus: 10, purchased: false },
   ];
 
-  // --- Helpers ---
+  // --- DOM ---
   const $ = id => document.getElementById(id);
   const els = {
     games: $("games"),
@@ -51,10 +106,12 @@ document.addEventListener("DOMContentLoaded", () => {
     resetBtn: $("resetBtn"),
   };
 
+  // --- Calcul ---
   function totalRate() {
     return producers.reduce((sum, p) => sum + p.count * p.rate, 0);
   }
 
+  // --- Succès ---
   function checkAchievements() {
     const list = [];
     if (state.games >= 10) list.push("10 jeux créés");
@@ -70,12 +127,8 @@ document.addEventListener("DOMContentLoaded", () => {
   function saveGame() {
     localStorage.setItem(LS_KEY, JSON.stringify({
       state,
-      producers: producers.map(p => ({
-        id: p.id,
-        cost: p.cost,
-        count: p.count
-      })),
-      clickUpgrades
+      producers,
+      clickUpgrades,
     }));
   }
 
@@ -89,6 +142,9 @@ document.addEventListener("DOMContentLoaded", () => {
       if (prod) {
         prod.cost = saved.cost;
         prod.count = saved.count;
+        prod.upgrades.forEach((u, i) => {
+          if (saved.upgrades?.[i]) u.purchased = saved.upgrades[i].purchased;
+        });
       }
     });
     parsed.clickUpgrades?.forEach((u, i) => {
@@ -96,12 +152,12 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // --- Init UI Producers ---
+  // --- UI producteurs ---
   producers.forEach(prod => {
     const li = document.createElement("li");
     li.dataset.id = prod.id;
 
-    const label = document.createElement("span");
+    const label = document.createElement("div");
     label.className = "label";
     li.appendChild(label);
 
@@ -118,19 +174,36 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     li.appendChild(buyBtn);
 
+    const subList = document.createElement("div");
+    subList.className = "sub-upgrades";
+    prod.upgrades.forEach((u, idx) => {
+      const upBtn = document.createElement("button");
+      upBtn.dataset.idx = idx;
+      upBtn.addEventListener("click", () => {
+        const prevPurchased = idx === 0 || prod.upgrades[idx - 1].purchased;
+        if (state.fans >= u.costFans && prod.count >= u.required && prevPurchased) {
+          state.fans -= u.costFans;
+          if (u.newRate > prod.rate) prod.rate = u.newRate;
+          u.purchased = true;
+          render();
+          saveGame();
+        }
+      });
+      subList.appendChild(upBtn);
+    });
+    li.appendChild(subList);
+
     els.upgrades.appendChild(li);
   });
 
-  // --- Init UI Click Upgrades ---
+  // --- UI upgrades clic ---
   clickUpgrades.forEach((u, idx) => {
     const li = document.createElement("li");
-    li.dataset.id = "click" + idx;
-
     const btn = document.createElement("button");
-    btn.textContent = `Upgrade ${idx+1} (+${u.extraGain}/clic, +${u.critChanceBonus}% crit) — ${u.requiredClicks} clics`;
+    btn.dataset.idx = idx;
     btn.addEventListener("click", () => {
       const prevPurchased = idx === 0 || clickUpgrades[idx - 1].purchased;
-      if (!u.purchased && state.totalClicks >= u.requiredClicks && prevPurchased) {
+      if (state.totalClicks >= u.requiredClicks && prevPurchased && !u.purchased) {
         state.perClick += u.extraGain;
         state.critChance += u.critChanceBonus;
         u.purchased = true;
@@ -138,10 +211,28 @@ document.addEventListener("DOMContentLoaded", () => {
         saveGame();
       }
     });
-
     li.appendChild(btn);
     els.clickUpgradesList.appendChild(li);
   });
+
+  // --- Feedback visuel ---
+  function showFloatingText(text, x, y) {
+    const span = document.createElement("span");
+    span.textContent = text;
+    span.style.position = "absolute";
+    span.style.left = `${x}px`;
+    span.style.top = `${y}px`;
+    span.style.pointerEvents = "none";
+    span.style.color = "lime";
+    span.style.fontWeight = "bold";
+    span.style.transition = "all 1s ease-out";
+    document.body.appendChild(span);
+    requestAnimationFrame(() => {
+      span.style.transform = "translateY(-50px)";
+      span.style.opacity = "0";
+    });
+    setTimeout(() => span.remove(), 1000);
+  }
 
   // --- Render ---
   function render() {
@@ -149,16 +240,29 @@ document.addEventListener("DOMContentLoaded", () => {
     els.money.textContent = Math.floor(state.money);
     els.fans.textContent = Math.floor(state.fans);
     els.prestige.textContent = state.prestige;
-    els.perClick.textContent = `${state.perClick}`;
-    els.perSecond.textContent = totalRate().toFixed(1);
+    els.perClick.textContent = `${state.perClick} (x${state.multiplier.toFixed(2)} prestige)`;
+    els.perSecond.textContent = `${totalRate().toFixed(1)} (x${state.multiplier.toFixed(2)})`;
 
-    // producers
+    // producteurs
     producers.forEach(prod => {
       const li = els.upgrades.querySelector(`li[data-id=${prod.id}]`);
       const label = li.querySelector(".label");
       const buyBtn = li.querySelector("button");
       label.textContent = `${prod.name} — coût : $${Math.floor(prod.cost)} — possédé : ${prod.count} — Prod/unité : ${prod.rate}/s`;
       buyBtn.disabled = state.money < prod.cost;
+
+      const subList = li.querySelector(".sub-upgrades");
+      [...subList.children].forEach((btn, idx) => {
+        const u = prod.upgrades[idx];
+        const prevPurchased = idx === 0 || prod.upgrades[idx - 1].purchased;
+        if (u.purchased) {
+          btn.textContent = `Upgrade ${idx+1} acheté`;
+          btn.disabled = true;
+        } else {
+          btn.textContent = `Upgrade ${idx+1} (${u.newRate}/s) — ${u.costFans} fans`;
+          btn.disabled = !(state.fans >= u.costFans && prod.count >= u.required && prevPurchased);
+        }
+      });
     });
 
     // click upgrades
@@ -170,6 +274,7 @@ document.addEventListener("DOMContentLoaded", () => {
         btn.textContent = `Upgrade ${idx+1} acheté`;
         btn.disabled = true;
       } else {
+        btn.textContent = `Upgrade ${idx+1} (+${u.extraGain}/clic, +${u.critChanceBonus}% crit) — ${u.requiredClicks} clics`;
         btn.disabled = !(state.totalClicks >= u.requiredClicks && prevPurchased);
       }
     });
@@ -192,12 +297,13 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // --- Click principal ---
-  els.makeGame.addEventListener("click", () => {
+  els.makeGame.addEventListener("click", e => {
     state.totalClicks++;
     let gain = state.perClick;
     if (Math.random() * 100 < state.critChance) gain *= state.critMultiplier;
     state.games += gain * state.multiplier;
     state.money += gain * state.multiplier;
+    showFloatingText(`+${gain}`, e.pageX, e.pageY);
     render();
     saveGame();
   });
@@ -213,6 +319,7 @@ document.addEventListener("DOMContentLoaded", () => {
       producers.forEach(p => {
         p.count = 0;
         p.cost = p.baseCost;
+        p.upgrades.forEach(u => u.purchased = false);
       });
       clickUpgrades.forEach(u => u.purchased = false);
       state.perClick = 1;
