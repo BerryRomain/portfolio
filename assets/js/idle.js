@@ -13,7 +13,7 @@ document.addEventListener("DOMContentLoaded", () => {
     critChance: 5,
     critMultiplier: 2,
     achievements: [],
-    nextPrestige: 10000, // palier dynamique (remplace le seuil fixe)
+    nextPrestige: 10000, // palier dynamique
   };
 
   // --- Producteurs ---
@@ -106,6 +106,9 @@ document.addEventListener("DOMContentLoaded", () => {
     resetBtn: $("resetBtn"),
   };
 
+  // safety: if reset button wasn't found, log so we can debug
+  if (!els.resetBtn) console.warn("resetBtn introuvable : vérifie que l'élément #resetBtn existe dans le HTML.");
+
   // --- Calcul ---
   function totalRate() {
     return producers.reduce((sum, p) => sum + p.count * p.rate, 0);
@@ -125,7 +128,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // --- Sauvegarde ---
   function saveGame() {
-    // on sauvegarde l'état complet + producteurs + upgrades de clic
     localStorage.setItem(LS_KEY, JSON.stringify({ state, producers, clickUpgrades }));
   }
 
@@ -133,11 +135,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const raw = localStorage.getItem(LS_KEY);
     if (!raw) return;
     const parsed = JSON.parse(raw);
-
-    // restaurer l'état (inclut maintenant nextPrestige si présent)
     Object.assign(state, parsed.state);
-
-    // restaurer producteurs (coût, count, upgrades purchased)
     parsed.producers?.forEach(saved => {
       const prod = producers.find(p => p.id === saved.id);
       if (prod) {
@@ -148,8 +146,6 @@ document.addEventListener("DOMContentLoaded", () => {
         });
       }
     });
-
-    // restaurer clickUpgrades purchased
     parsed.clickUpgrades?.forEach((u, i) => {
       if (clickUpgrades[i]) clickUpgrades[i].purchased = u.purchased;
     });
@@ -335,8 +331,7 @@ document.addEventListener("DOMContentLoaded", () => {
       state.perClick = 1;
       state.totalClicks = 0;
 
-      // augmente dynamiquement le seuil pour le prochain prestige
-      // ici on multiplie par 1.5 pour une progression raisonnable
+      // augmente dynamiquement le seuil pour le prochain prestige (facteur 1.5)
       state.nextPrestige = Math.max(10000, Math.floor(state.nextPrestige * 1.5));
 
       render();
@@ -344,11 +339,52 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // --- Reset ---
-  els.resetBtn.addEventListener("click", () => {
+  // --- Reset (robuste) ---
+  els.resetBtn?.addEventListener("click", () => {
     if (!confirm("Reset complet : tout sera perdu (y compris le prestige).")) return;
-    localStorage.removeItem(LS_KEY);
-    location.reload();
+
+    // Supprime plusieurs clés possibles (pour couvrir d'éventuelles versions antérieures)
+    const possibleKeys = [
+      LS_KEY,
+      "idleGameSave",
+      "videoGameEmpire_final",
+      "videoGameEmpire_save",
+      "idle_save"
+    ];
+    possibleKeys.forEach(k => {
+      if (localStorage.getItem(k) !== null) {
+        localStorage.removeItem(k);
+        console.log(`[Reset] removed localStorage key: ${k}`);
+      }
+    });
+
+    // Réinitialise l'état en mémoire
+    Object.assign(state, {
+      games: 0,
+      fans: 0,
+      money: 0,
+      prestige: 0,
+      multiplier: 1,
+      perClick: 1,
+      totalClicks: 0,
+      critChance: 5,
+      critMultiplier: 2,
+      achievements: [],
+      nextPrestige: 10000,
+    });
+
+    // Réinitialise producteurs et upgrades
+    producers.forEach(p => {
+      p.count = 0;
+      p.cost = p.baseCost;
+      p.upgrades.forEach(u => u.purchased = false);
+    });
+    clickUpgrades.forEach(u => u.purchased = false);
+
+    // Sauvegarde l'état propre (optionnel) puis recharge
+    saveGame();
+    // courte pause facultative (assure que localStorage est écrit) puis reload
+    setTimeout(() => location.reload(), 50);
   });
 
   // --- Boucle ---
