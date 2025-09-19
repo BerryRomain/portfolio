@@ -1,6 +1,5 @@
 document.addEventListener("DOMContentLoaded", () => {
   const LS_KEY = "videoGameEmpire_final";
-  const PRESTIGE_THRESHOLD = 10000;
 
   // --- État initial ---
   const state = {
@@ -14,6 +13,7 @@ document.addEventListener("DOMContentLoaded", () => {
     critChance: 5,
     critMultiplier: 2,
     achievements: [],
+    nextPrestige: 10000, // palier dynamique (remplace le seuil fixe)
   };
 
   // --- Producteurs ---
@@ -125,6 +125,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // --- Sauvegarde ---
   function saveGame() {
+    // on sauvegarde l'état complet + producteurs + upgrades de clic
     localStorage.setItem(LS_KEY, JSON.stringify({ state, producers, clickUpgrades }));
   }
 
@@ -132,7 +133,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const raw = localStorage.getItem(LS_KEY);
     if (!raw) return;
     const parsed = JSON.parse(raw);
+
+    // restaurer l'état (inclut maintenant nextPrestige si présent)
     Object.assign(state, parsed.state);
+
+    // restaurer producteurs (coût, count, upgrades purchased)
     parsed.producers?.forEach(saved => {
       const prod = producers.find(p => p.id === saved.id);
       if (prod) {
@@ -143,6 +148,8 @@ document.addEventListener("DOMContentLoaded", () => {
         });
       }
     });
+
+    // restaurer clickUpgrades purchased
     parsed.clickUpgrades?.forEach((u, i) => {
       if (clickUpgrades[i]) clickUpgrades[i].purchased = u.purchased;
     });
@@ -285,12 +292,12 @@ document.addEventListener("DOMContentLoaded", () => {
       els.achievements.appendChild(li);
     });
 
-    // prestige
-    const canPrestige = state.games >= PRESTIGE_THRESHOLD;
+    // prestige (utilise le palier dynamique dans state.nextPrestige)
+    const canPrestige = state.games >= state.nextPrestige;
     els.prestigeBtn.disabled = !canPrestige;
     els.prestigeNote.textContent = canPrestige
       ? `Prestige disponible — clique pour +0.5x permanent`
-      : `Prestige à ${PRESTIGE_THRESHOLD} jeux (actuellement ${Math.floor(state.games)})`;
+      : `Prestige à ${state.nextPrestige} jeux (actuellement ${Math.floor(state.games)})`;
   }
 
   // --- Click principal ---
@@ -298,18 +305,24 @@ document.addEventListener("DOMContentLoaded", () => {
     state.totalClicks++;
     let gain = state.perClick;
     if (Math.random() * 100 < state.critChance) gain *= state.critMultiplier;
-    state.games += gain * state.multiplier;
-    state.money += gain * state.multiplier;
-    showFloatingText(`+${gain.toFixed(1)}`, e.pageX, e.pageY);
+
+    // applique correctement le multiplicateur au calcul réel ET à l'affichage
+    const totalGain = gain * state.multiplier;
+    state.games += totalGain;
+    state.money += totalGain;
+
+    showFloatingText(`+${totalGain.toFixed(1)}`, e.pageX, e.pageY);
     render();
     saveGame();
   });
 
   // --- Prestige ---
   els.prestigeBtn.addEventListener("click", () => {
-    if (state.games >= PRESTIGE_THRESHOLD) {
+    if (state.games >= state.nextPrestige) {
       state.prestige++;
       state.multiplier += 0.5;
+
+      // reset progression mais garder le prestige/multiplier
       state.games = 0;
       state.money = 0;
       state.fans = 0;
@@ -321,6 +334,11 @@ document.addEventListener("DOMContentLoaded", () => {
       clickUpgrades.forEach(u => u.purchased = false);
       state.perClick = 1;
       state.totalClicks = 0;
+
+      // augmente dynamiquement le seuil pour le prochain prestige
+      // ici on multiplie par 1.5 pour une progression raisonnable
+      state.nextPrestige = Math.max(10000, Math.floor(state.nextPrestige * 1.5));
+
       render();
       saveGame();
     }
