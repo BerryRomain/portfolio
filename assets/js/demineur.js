@@ -1,139 +1,225 @@
+// demineur.js - version améliorée : dark mode, best times, chrono précis (démarre au 1er clic)
+
 let gridSize = 9;
 let mineCount = 10;
 let grid = [];
 let revealedCount = 0;
 let flagsLeft = mineCount;
-let timer = 0;
-let interval = null;
-let gameActive = true;
 
-window.onload = () => {
-  const difficultySelect = document.getElementById("difficulty");
-  difficultySelect.addEventListener("change", startGame); // Recommence si difficulté change
-  startGame(); // Lancer la première partie
-};
+let timerInterval = null;
+let timerStart = null;
+let elapsedBeforePause = 0;
+let timerRunning = false;
+
+let gameActive = true;
+let currentDifficulty = "medium";
 
 const gridElement = document.getElementById("grid");
 const minesElement = document.getElementById("mines");
 const timerElement = document.getElementById("timer");
+const messageElement = document.getElementById("message");
+const difficultySelect = document.getElementById("difficulty");
+const newGameButton = document.getElementById("new-game");
+const diffDisplay = document.getElementById("current-difficulty");
+const bestTimeDisplay = document.getElementById("bestTime");
+const darkToggle = document.getElementById("darkToggle");
 
-function startGame() {
-  const difficulty = document.getElementById("difficulty")?.value || "medium";
+// key for localStorage
+const STORAGE_BEST_KEY = "demineur_best_times_v1";
+const STORAGE_DARK_KEY = "demineur_dark_mode_v1";
 
-  // Ajuster taille et mines selon difficulté
-  switch(difficulty) {
+// load saved dark mode preference
+(function applySavedDarkMode(){
+  try {
+    const dark = localStorage.getItem(STORAGE_DARK_KEY);
+    if (dark === "true") { document.body.classList.add("dark"); darkToggle.checked = true; }
+  } catch(e){}
+})();
+
+// react to toggle
+darkToggle?.addEventListener("change", (e) => {
+  if (e.target.checked) document.body.classList.add("dark");
+  else document.body.classList.remove("dark");
+  try { localStorage.setItem(STORAGE_DARK_KEY, e.target.checked ? "true" : "false"); } catch(e){}
+});
+
+// start a new game when difficulty changes
+difficultySelect?.addEventListener("change", () => {
+  startGame();
+});
+
+// new game button
+newGameButton?.addEventListener("click", () => {
+  startGame();
+});
+
+// initialize on page load
+window.addEventListener("load", () => {
+  startGame();
+  updateBestTimeDisplay();
+});
+
+// format ms -> mm:ss.mmm
+function formatTime(ms) {
+  const total = Math.max(0, ms);
+  const minutes = Math.floor(total / 60000);
+  const seconds = Math.floor((total % 60000) / 1000);
+  const millis = total % 1000;
+  return `${String(minutes).padStart(2,"0")}:${String(seconds).padStart(2,"0")}.${String(millis).padStart(3,"0")}`;
+}
+
+// retrieve best times object from localStorage
+function loadBestTimes(){
+  try{
+    const raw = localStorage.getItem(STORAGE_BEST_KEY);
+    return raw ? JSON.parse(raw) : {};
+  }catch(e){ return {}; }
+}
+
+function saveBestTimes(obj){
+  try{ localStorage.setItem(STORAGE_BEST_KEY, JSON.stringify(obj)); }catch(e){}
+}
+
+function updateBestTimeDisplay(){
+  const bests = loadBestTimes();
+  const key = currentDifficulty;
+  if (bests && bests[key] != null) {
+    bestTimeDisplay.textContent = formatTime(bests[key]);
+  } else {
+    bestTimeDisplay.textContent = "—";
+  }
+}
+
+// Timer control: start only on first reveal
+function startTimerIfNeeded(){
+  if (timerRunning) return;
+  timerRunning = true;
+  timerStart = performance.now();
+  // reset any previous elapsed
+  elapsedBeforePause = 0;
+  timerInterval = setInterval(() => {
+    const now = performance.now();
+    const elapsed = Math.floor(now - timerStart + elapsedBeforePause);
+    timerElement.textContent = `Temps: ${formatTime(elapsed)}`;
+  }, 50);
+}
+
+function stopTimer(){
+  if (!timerRunning) return;
+  timerRunning = false;
+  clearInterval(timerInterval);
+  const now = performance.now();
+  const elapsed = Math.floor(now - timerStart + elapsedBeforePause);
+  return elapsed;
+}
+
+function resetTimerDisplay(){
+  timerRunning = false;
+  clearInterval(timerInterval);
+  timerStart = null;
+  elapsedBeforePause = 0;
+  timerElement.textContent = `Temps: 00:00.000`;
+}
+
+// set up a new game
+function startGame(){
+  currentDifficulty = document.getElementById("difficulty")?.value || "medium";
+
+  // set grid size and mineCount per difficulty
+  switch(currentDifficulty) {
     case "easy":
-      gridSize = 6;
-      mineCount = 6;
-      break;
+      gridSize = 6; mineCount = 6; break;
     case "medium":
-      gridSize = 9;
-      mineCount = 10;
-      break;
+      gridSize = 9; mineCount = 10; break;
     case "hard":
-      gridSize = 12;
-      mineCount = 20;
-      break;
-    case "extreme": // 🔥 Nouveau mode
-      gridSize = 16;
-      mineCount = 50;
-      break;
+      gridSize = 12; mineCount = 20; break;
+    case "extreme":
+      gridSize = 16; mineCount = 50; break;
+    default:
+      gridSize = 9; mineCount = 10;
   }
 
-  // Mettre à jour le texte de difficulté
-  const difficultyText = { 
-    easy: "Facile", 
-    medium: "Moyen", 
-    hard: "Difficile", 
-    extreme: "Extrême 💀" 
-  };
-  const diffElement = document.getElementById("current-difficulty");
-  if(diffElement) diffElement.textContent = `Difficulté actuelle : ${difficultyText[difficulty]}`;
+  // update difficulty text
+  const difficultyText = { easy: "Facile", medium: "Moyen", hard: "Difficile", extreme: "Extrême 💀" };
+  if (diffDisplay) diffDisplay.textContent = `Difficulté actuelle : ${difficultyText[currentDifficulty] || currentDifficulty}`;
 
-  // Reset
+  // reset state
   gridElement.innerHTML = "";
   grid = [];
   revealedCount = 0;
   flagsLeft = mineCount;
-  timer = 0;
   gameActive = true;
-  clearInterval(interval);
-  interval = setInterval(updateTimer, 1000);
+  resetTimerDisplay();
   minesElement.textContent = `Mines restantes: ${flagsLeft}`;
-  timerElement.textContent = "Temps: 0s";
+  messageElement.textContent = "";
+  messageElement.style.color = "";
 
-  // 🔹 Effacer le message précédent
-  const messageDiv = document.getElementById("message");
-  if(messageDiv) {
-    messageDiv.textContent = "";
-    messageDiv.style.color = "black";
-  }
-
-  // Calculer la taille des cases dynamiquement
-  const cellSize = gridSize <= 9 ? 40 : gridSize <= 12 ? 30 : 25;
+  // compute cell size dynamically
+  const cellSize = gridSize <= 9 ? 40 : gridSize <= 12 ? 32 : 26;
   gridElement.style.gridTemplateColumns = `repeat(${gridSize}, ${cellSize}px)`;
   gridElement.style.gridTemplateRows = `repeat(${gridSize}, ${cellSize}px)`;
 
-  // Créer les cellules
-  for (let row = 0; row < gridSize; row++) {
-    grid[row] = [];
-    for (let col = 0; col < gridSize; col++) {
-      const cell = document.createElement("div");
-      cell.classList.add("cell");
-      cell.style.width = `${cellSize}px`;
-      cell.style.height = `${cellSize}px`;
-      cell.style.lineHeight = `${cellSize}px`;
-      cell.dataset.row = row;
-      cell.dataset.col = col;
-      cell.addEventListener("click", () => revealCell(row, col));
-      cell.addEventListener("contextmenu", (e) => {
-        e.preventDefault();
-        toggleFlag(row, col);
+  // create grid
+  for (let r = 0; r < gridSize; r++){
+    grid[r] = [];
+    for (let c = 0; c < gridSize; c++){
+      const el = document.createElement("div");
+      el.className = "cell";
+      el.style.width = `${cellSize}px`;
+      el.style.height = `${cellSize}px`;
+      el.style.lineHeight = `${cellSize}px`;
+      el.dataset.row = r;
+      el.dataset.col = c;
+      // left click
+      el.addEventListener("click", () => revealCell(r, c));
+      // right click toggle flag
+      el.addEventListener("contextmenu", (ev) => {
+        ev.preventDefault();
+        toggleFlag(r, c);
       });
-      gridElement.appendChild(cell);
-
-      grid[row][col] = { mine: false, revealed: false, flagged: false, element: cell, adjacentMines: 0 };
+      gridElement.appendChild(el);
+      grid[r][c] = { mine: false, revealed: false, flagged: false, element: el, adjacentMines: 0 };
     }
   }
 
-  // Placer les mines
-  let minesPlaced = 0;
-  while (minesPlaced < mineCount) {
+  // place mines
+  let placed = 0;
+  while (placed < mineCount) {
     const r = Math.floor(Math.random() * gridSize);
     const c = Math.floor(Math.random() * gridSize);
-    if (!grid[r][c].mine) {
-      grid[r][c].mine = true;
-      minesPlaced++;
+    if (!grid[r][c].mine) { grid[r][c].mine = true; placed++; }
+  }
+
+  // compute adjacent counts
+  for (let r=0;r<gridSize;r++){
+    for (let c=0;c<gridSize;c++){
+      if (!grid[r][c].mine) grid[r][c].adjacentMines = countAdjacentMines(r,c);
     }
   }
 
-  // Calculer les mines adjacentes
-  for (let r = 0; r < gridSize; r++) {
-    for (let c = 0; c < gridSize; c++) {
-      if (!grid[r][c].mine) {
-        grid[r][c].adjacentMines = countAdjacentMines(r, c);
-      }
-    }
-  }
+  updateBestTimeDisplay();
 }
 
-function countAdjacentMines(row, col) {
-  let count = 0;
-  for (let dr = -1; dr <= 1; dr++) {
-    for (let dc = -1; dc <= 1; dc++) {
-      if (dr === 0 && dc === 0) continue;
-      const nr = row + dr;
-      const nc = col + dc;
-      if (nr >= 0 && nr < gridSize && nc >= 0 && nc < gridSize && grid[nr][nc].mine) count++;
+// count adjacent mines utility
+function countAdjacentMines(row, col){
+  let cnt = 0;
+  for (let dr=-1; dr<=1; dr++){
+    for (let dc=-1; dc<=1; dc++){
+      if (dr===0 && dc===0) continue;
+      const nr = row+dr, nc = col+dc;
+      if (nr>=0 && nr<gridSize && nc>=0 && nc<gridSize && grid[nr][nc].mine) cnt++;
     }
   }
-  return count;
+  return cnt;
 }
 
-function revealCell(row, col) {
+function revealCell(row, col){
   if (!gameActive) return;
   const cell = grid[row][col];
-  if (cell.revealed || cell.flagged) return;
+  if (!cell || cell.revealed || cell.flagged) return;
+
+  // start timer on first user reveal
+  startTimerIfNeeded();
 
   cell.revealed = true;
   revealedCount++;
@@ -147,78 +233,90 @@ function revealCell(row, col) {
   }
 
   if (cell.adjacentMines === 0) {
-    for (let r = row - 1; r <= row + 1; r++) {
-      for (let c = col - 1; c <= col + 1; c++) {
-        if (r >= 0 && r < gridSize && c >= 0 && c < gridSize) revealCell(r, c);
+    // flood fill reveal
+    for (let r = row-1; r<=row+1; r++){
+      for (let c = col-1; c<=col+1; c++){
+        if (r>=0 && r<gridSize && c>=0 && c<gridSize){
+          if (!grid[r][c].revealed) revealCell(r,c);
+        }
       }
     }
   } else {
     cell.element.textContent = cell.adjacentMines;
-    cell.element.style.color = getNumberColor(cell.adjacentMines);
+    const cls = `num-${cell.adjacentMines}`;
+    cell.element.classList.add(cls);
   }
 
   checkWin();
 }
 
-function toggleFlag(row, col) {
+function toggleFlag(row, col){
+  if (!gameActive) return;
   const cell = grid[row][col];
-  if (cell.revealed) return;
-  if (cell.flagged) { 
-    cell.flagged = false; 
-    cell.element.textContent = ""; 
-    flagsLeft++; 
-  }
-  else if (flagsLeft > 0) { 
-    cell.flagged = true; 
-    cell.element.textContent = "🚩"; 
-    flagsLeft--; 
+  if (!cell || cell.revealed) return;
+  if (cell.flagged) {
+    cell.flagged = false;
+    cell.element.classList.remove("flagged");
+    cell.element.textContent = "";
+    flagsLeft++;
+  } else {
+    if (flagsLeft <= 0) return;
+    cell.flagged = true;
+    cell.element.classList.add("flagged");
+    cell.element.textContent = "🚩";
+    flagsLeft--;
   }
   minesElement.textContent = `Mines restantes: ${flagsLeft}`;
 }
 
-function gameOver(won) {
+function gameOver(won){
   gameActive = false;
-  clearInterval(interval);
+  const elapsed = stopTimer(); // ms or undefined
+  // reveal all mines on lose
   if (!won) {
-    for (let r = 0; r < gridSize; r++) {
-      for (let c = 0; c < gridSize; c++) {
+    for (let r=0;r<gridSize;r++){
+      for (let c=0;c<gridSize;c++){
         if (grid[r][c].mine) {
           grid[r][c].element.classList.add("mine");
           grid[r][c].element.textContent = "💣";
         }
       }
     }
+  } else {
+    // on win, mark flags for aesthetics
+    for (let r=0;r<gridSize;r++){
+      for (let c=0;c<gridSize;c++){
+        if (grid[r][c].flagged && grid[r][c].mine) {
+          grid[r][c].element.classList.add("flagged");
+        }
+      }
+    }
   }
 
-  const messageDiv = document.getElementById("message");
-  messageDiv.textContent = won ? "🎉 Bravo, vous avez gagné !" : "💥 Perdu ! Vous avez cliqué sur une mine.";
-  messageDiv.style.color = won ? "green" : "red";
-}
-
-function checkWin() {
-  if (revealedCount === gridSize * gridSize - mineCount) gameOver(true);
-}
-
-function updateTimer() { 
-  timer++; 
-  timerElement.textContent = `Temps: ${timer}s`; 
-}
-
-function getNumberColor(num) {
-  switch(num){
-    case 1: return "blue";
-    case 2: return "green";
-    case 3: return "red";
-    case 4: return "darkblue";
-    case 5: return "brown";
-    case 6: return "cyan";
-    case 7: return "black";
-    case 8: return "gray";
-    default: return "black";
+  if (won) {
+    messageElement.textContent = `🎉 Bravo, vous avez gagné !`;
+    messageElement.style.color = "green";
+    // save best time if better
+    if (elapsed != null) {
+      const bests = loadBestTimes();
+      const prev = bests[currentDifficulty];
+      if (prev == null || elapsed < prev) {
+        bests[currentDifficulty] = elapsed;
+        saveBestTimes(bests);
+        updateBestTimeDisplay();
+        messageElement.textContent += ` Nouveau meilleur temps : ${formatTime(elapsed)} !`;
+      } else {
+        messageElement.textContent += ` Temps : ${formatTime(elapsed)}. Meilleur : ${formatTime(prev)}.`;
+      }
+    }
+  } else {
+    messageElement.textContent = `💥 Perdu ! Vous avez cliqué sur une mine.`;
+    messageElement.style.color = "red";
   }
-
-
-
 }
 
-
+function checkWin(){
+  if (revealedCount === gridSize * gridSize - mineCount) {
+    gameOver(true);
+  }
+}

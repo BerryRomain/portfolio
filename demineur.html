@@ -1,106 +1,271 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Démineur</title>
   <style>
+    :root{
+      --bg: #f9f9f9;
+      --card: #ffffff;
+      --text: #222;
+      --muted: #666;
+      --accent: #888;
+      --cell-bg: #bbb;
+      --cell-border: #888;
+      --revealed-bg: #eee;
+      --mine-bg: #c02222;
+      --flag-bg: #ffd369;
+      --btn-bg: #888;
+    }
+
+    body.dark {
+      --bg: #0f1115;
+      --card: #141518;
+      --text: #e8e8e8;
+      --muted: #b5b5b5;
+      --accent: #bdbdbd;
+      --cell-bg: #2a2c30;
+      --cell-border: #3a3c40;
+      --revealed-bg: #1f2124;
+      --mine-bg: #6e1f1f;
+      --flag-bg: #b77d00;
+      --btn-bg: #666;
+    }
+
+    *{box-sizing:border-box}
     body {
       text-align: center;
       font-family: Arial, sans-serif;
-      background: #f9f9f9;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 20px;
     }
 
-    h1 {
-      margin-top: 20px;
+    h1 { margin: 8px 0 6px; font-size: 2.4rem; }
+
+    .top-bar {
+      display:flex;
+      gap:12px;
+      justify-content:center;
+      align-items:center;
+      flex-wrap:wrap;
+      margin-bottom: 10px;
+    }
+
+    .top-bar .panel{
+      background: var(--card);
+      padding: 10px 14px;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      color: var(--text);
+      font-weight:600;
+    }
+
+    .top-bar .controls {
+      display:flex;
+      gap:10px;
+      align-items:center;
+      background: transparent;
+      padding: 0;
+      border-radius: 8px;
+    }
+
+    select, button, .toggle {
+      font-size: 0.95rem;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(0,0,0,0.08);
+      background: var(--card);
+      color: var(--text);
+    }
+
+    .toggle {
+      display:flex;
+      align-items:center;
+      gap:8px;
+      padding: 6px 10px;
+      cursor:pointer;
+      user-select:none;
+    }
+
+    .toggle input { transform: scale(1.1); }
+
+    .container {
+      max-width: 900px;
+      margin: 18px auto;
+    }
+
+    .game-card{
+      background: var(--card);
+      padding: 22px;
+      border-radius: 14px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.06);
     }
 
     .header {
-      display: flex;
-      justify-content: space-around;
-      margin: 20px;
-      font-size: 18px;
-      font-weight: bold;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      margin-bottom: 12px;
+      flex-wrap:wrap;
     }
 
-    .grid {
-  display: grid;
-  gap: 2px;
-  justify-content: center;
-  margin: 20px auto;
-}
+    .status {
+      display:flex;
+      gap:16px;
+      align-items:center;
+      font-weight:700;
+      color:var(--muted);
+    }
 
+    .status div { min-width: 160px; text-align:left; }
 
+    #grid {
+      display: grid;
+      gap: 6px;
+      justify-content: center;
+      margin: 18px auto;
+      padding: 8px;
+    }
 
     .cell {
       width: 40px;
       height: 40px;
-      border: 1px solid #888;
-      background-color: #bbb;
+      border-radius:6px;
+      border: 1px solid var(--cell-border);
+      background-color: var(--cell-bg);
       text-align: center;
       line-height: 40px;
       font-weight: bold;
       cursor: pointer;
       user-select: none;
+      color: var(--text);
+      transition: background 0.12s, transform 0.06s;
     }
 
+    .cell:active { transform: scale(0.98); }
+
     .cell.revealed {
-      background-color: #eee;
+      background-color: var(--revealed-bg);
       cursor: default;
+      border: 1px solid rgba(0,0,0,0.06);
+      color: var(--text);
     }
 
     .cell.mine {
-      background-color: rgb(192, 34, 34);
+      background-color: var(--mine-bg);
       color: white;
     }
 
-    .cell.flag {
-      background-color: yellow;
+    .cell.flagged {
+      background-color: var(--flag-bg);
+      color: black;
     }
 
+    /* number colors (keep visible in dark mode) */
+    .num-1 { color: #1e63d0; }
+    .num-2 { color: #2b9b2b; }
+    .num-3 { color: #d03a3a; }
+    .num-4 { color: #13406a; }
+    .num-5 { color: #7b3b1d; }
+    .num-6 { color: #0aa; }
+    .num-7 { color: #111; }
+    .num-8 { color: #666; }
+
     .controls {
-      margin-top: 20px;
+      margin-top: 8px;
+      display:flex;
+      gap:10px;
+      justify-content:center;
+      align-items:center;
+      flex-wrap:wrap;
     }
 
     .back-home-button {
-      padding: 10px 20px;
-      font-size: 1em;
+      padding: 10px 16px;
+      font-size: 1rem;
       text-decoration: none;
       color: #fff;
-      background-color: #888; 
-      border-radius: 5px;
-      transition: background-color 0.3s ease;
+      background-color: var(--btn-bg);
+      border-radius: 8px;
+      transition: background-color 0.2s, transform 0.08s;
     }
 
-    .back-home-button:hover {
-      background-color: #666;
+    .back-home-button:hover { transform: translateY(-2px); }
+
+    #message {
+      margin-top: 12px;
+      font-size: 1.05rem;
+      font-weight:700;
+    }
+
+    /* responsive cell sizing */
+    @media (max-width: 800px) {
+      .cell { width: 36px; height:36px; line-height:36px; }
+    }
+    @media (max-width: 420px) {
+      .cell { width: 30px; height:30px; line-height:30px; font-size:0.9rem; }
+    }
+
+    /* best time label styling */
+    .best-time {
+      font-size: 0.95rem;
+      color: var(--muted);
+      font-weight:600;
     }
   </style>
 </head>
 <body>
   <h1>Démineur</h1>
-<div id="current-difficulty" style="margin-top:10px; font-weight:bold;">Difficulté actuelle : Moyen</div>
 
-  <div class="header">
-    <div id="mines">Mines restantes: 10</div>
-    <div id="timer">Temps: 0s</div>
+  <div class="top-bar">
+    <div class="panel" id="current-difficulty">Difficulté actuelle : Moyen</div>
+
+    <div class="panel status">
+      <div id="mines">Mines restantes: 10</div>
+      <div id="timer">Temps: 00:00.000</div>
+    </div>
+
+    <div class="controls">
+      <div class="panel controls">
+        <label for="difficulty">Difficulté :</label>
+        <select id="difficulty">
+          <option value="easy">Facile</option>
+          <option value="medium" selected>Moyen</option>
+          <option value="hard">Difficile</option>
+          <option value="extreme">Extrême</option>
+        </select>
+
+        <button id="new-game">Nouvelle partie</button>
+      </div>
+
+      <div class="panel controls" style="align-items:center;">
+        <label class="toggle" title="Activer/désactiver le mode sombre">
+          <input type="checkbox" id="darkToggle"/>
+          Mode sombre
+        </label>
+        <div style="min-width:160px; text-align:left; padding-left:8px;">
+          <div style="font-weight:700;">Meilleur temps :</div>
+          <div class="best-time" id="bestTime">—</div>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <div id="grid" class="grid"></div>
+  <div class="container">
+    <div class="game-card">
+      <div id="grid" class="grid"></div>
 
-    <div id="message" style="margin-top:20px; font-size:18px; font-weight:bold;"></div>
+      <div id="message"></div>
 
-<div class="controls">
-  <label for="difficulty">Difficulté :</label>
-  <select id="difficulty">
-    <option value="easy">Facile</option>
-    <option value="medium">Moyen</option>
-    <option value="hard">Difficile</option>
-    <option value="extreme">Extrême</option>
-  </select>
-  <button onclick="startGame()">Nouvelle partie</button>
-  <a href="mini-jeu.html" class="back-home-button">Retour aux mini-jeux</a>
-</div>
+      <div class="controls">
+        <a href="mini-jeu.html" class="back-home-button">Retour aux mini-jeux</a>
+      </div>
+    </div>
+  </div>
 
   <script src="assets/js/demineur.js"></script>
 </body>
