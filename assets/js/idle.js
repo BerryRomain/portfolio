@@ -13,79 +13,57 @@ document.addEventListener("DOMContentLoaded", () => {
     critChance: 5,
     critMultiplier: 2,
     achievements: [],
-    nextPrestige: 100000, // palier initial beaucoup plus élevé
+    nextPrestige: 100000, // seuil initial plus difficile
   };
 
-  // --- Producteurs ---
+  // --- Producteurs inspirés de Cookie Clicker ---
   const producers = [
-    {
-      id: "marketing",
-      name: "Campagne marketing",
-      baseCost: 20,
-      cost: 20,
-      count: 0,
-      rate: 0.1,
-      upgrades: [
-        { required: 25, newRate: 0.18, costFans: 120, purchased: false },
-        { required: 100, newRate: 0.25, costFans: 500, purchased: false },
-      ],
-    },
-    {
-      id: "studio",
-      name: "Meilleur studio",
-      baseCost: 65,
-      cost: 65,
-      count: 0,
-      rate: 1,
-      upgrades: [
-        { required: 10, newRate: 1.25, costFans: 250, purchased: false },
-        { required: 50, newRate: 1.6, costFans: 700, purchased: false },
-      ],
-    },
-    {
-      id: "devTeam",
-      name: "Équipe de dev",
-      baseCost: 130,
-      cost: 130,
-      count: 0,
-      rate: 5,
-      upgrades: [
-        { required: 5, newRate: 6, costFans: 600, purchased: false },
-        { required: 20, newRate: 8, costFans: 1600, purchased: false },
-      ],
-    },
-    {
-      id: "publisher",
-      name: "Grand éditeur",
-      baseCost: 500,
-      cost: 500,
-      count: 0,
-      rate: 20,
-      upgrades: [
-        { required: 3, newRate: 25, costFans: 1200, purchased: false },
-        { required: 8, newRate: 35, costFans: 3000, purchased: false },
-      ],
-    },
-    {
-      id: "franchise",
-      name: "Franchise à succès",
-      baseCost: 2000,
-      cost: 2000,
-      count: 0,
-      rate: 100,
-      upgrades: [
-        { required: 1, newRate: 120, costFans: 5000, purchased: false },
-        { required: 2, newRate: 150, costFans: 12000, purchased: false },
-      ],
-    },
+    { id: "marketing", name: "Campagne marketing", baseCost: 100, cost: 100, count: 0, rate: 1, upgrades: [
+      { required: 10, newRate: 1.5, costFans: 50, purchased: false },
+      { required: 50, newRate: 2, costFans: 200, purchased: false },
+      { required: 100, newRate: 3, costFans: 500, purchased: false },
+    ] },
+    { id: "studio", name: "Meilleur studio", baseCost: 1100, cost: 1100, count: 0, rate: 8, upgrades: [
+      { required: 10, newRate: 10, costFans: 100, purchased: false },
+      { required: 50, newRate: 13, costFans: 400, purchased: false },
+      { required: 100, newRate: 16, costFans: 1000, purchased: false },
+    ] },
+    { id: "devTeam", name: "Équipe de dev", baseCost: 12000, cost: 12000, count: 0, rate: 47, upgrades: [
+      { required: 5, newRate: 60, costFans: 500, purchased: false },
+      { required: 25, newRate: 80, costFans: 1200, purchased: false },
+      { required: 50, newRate: 100, costFans: 3000, purchased: false },
+    ] },
+    { id: "publisher", name: "Éditeur AAA", baseCost: 130000, cost: 130000, count: 0, rate: 260, upgrades: [
+      { required: 2, newRate: 300, costFans: 1000, purchased: false },
+      { required: 5, newRate: 400, costFans: 3000, purchased: false },
+      { required: 10, newRate: 500, costFans: 8000, purchased: false },
+    ] },
+    { id: "franchise", name: "Franchise à succès", baseCost: 1400000, cost: 1400000, count: 0, rate: 1400, upgrades: [
+      { required: 1, newRate: 1600, costFans: 5000, purchased: false },
+      { required: 3, newRate: 2000, costFans: 12000, purchased: false },
+      { required: 5, newRate: 2500, costFans: 30000, purchased: false },
+    ] },
+    { id: "cloudPlatform", name: "Plateforme Cloud", baseCost: 20000000, cost: 20000000, count: 0, rate: 8000, upgrades: [
+      { required: 1, newRate: 9000, costFans: 10000, purchased: false },
+      { required: 3, newRate: 11000, costFans: 30000, purchased: false },
+    ] },
+    { id: "aiLab", name: "Laboratoire IA", baseCost: 330000000, cost: 330000000, count: 0, rate: 47000, upgrades: [
+      { required: 1, newRate: 55000, costFans: 50000, purchased: false },
+      { required: 2, newRate: 65000, costFans: 120000, purchased: false },
+    ] },
+    { id: "timeMachine", name: "Machine à remonter le temps du jeu", baseCost: 5100000000, cost: 5100000000, count: 0, rate: 260000, upgrades: [
+      { required: 1, newRate: 300000, costFans: 500000, purchased: false },
+      { required: 2, newRate: 350000, costFans: 1200000, purchased: false },
+    ] },
   ];
 
-  // --- Upgrades du clic ---
+  // --- Upgrades de clics ---
   const clickUpgrades = [
-    { requiredClicks: 100, extraGain: 0.7, critChanceBonus: 1, purchased: false },
-    { requiredClicks: 400, extraGain: 1.2, critChanceBonus: 2, purchased: false },
-    { requiredClicks: 1000, extraGain: 3, critChanceBonus: 3, purchased: false },
-    { requiredClicks: 2000, extraGain: 6, critChanceBonus: 6, purchased: false },
+    { requiredClicks: 50, extraGain: 1, critChanceBonus: 2, purchased: false },
+    { requiredClicks: 200, extraGain: 2, critChanceBonus: 3, purchased: false },
+    { requiredClicks: 500, extraGain: 5, critChanceBonus: 5, purchased: false },
+    { requiredClicks: 1000, extraGain: 10, critChanceBonus: 10, purchased: false },
+    { requiredClicks: 2000, extraGain: 15, critChanceBonus: 15, purchased: false },
   ];
 
   // --- DOM ---
@@ -105,8 +83,6 @@ document.addEventListener("DOMContentLoaded", () => {
     perSecond: $("perSecond"),
     resetBtn: $("resetBtn"),
   };
-
-  if (!els.resetBtn) console.warn("resetBtn introuvable : vérifie que l'élément #resetBtn existe dans le HTML.");
 
   // --- Calcul ---
   function totalRate() {
@@ -133,25 +109,21 @@ document.addEventListener("DOMContentLoaded", () => {
   function loadGame() {
     const raw = localStorage.getItem(LS_KEY);
     if (!raw) return;
-    try {
-      const parsed = JSON.parse(raw);
-      Object.assign(state, parsed.state);
-      parsed.producers?.forEach(saved => {
-        const prod = producers.find(p => p.id === saved.id);
-        if (prod) {
-          prod.cost = saved.cost ?? prod.baseCost;
-          prod.count = saved.count ?? 0;
-          prod.upgrades.forEach((u, i) => {
-            if (saved.upgrades?.[i]) u.purchased = saved.upgrades[i].purchased;
-          });
-        }
-      });
-      parsed.clickUpgrades?.forEach((u, i) => {
-        if (clickUpgrades[i]) clickUpgrades[i].purchased = u.purchased;
-      });
-    } catch (e) {
-      console.warn("Échec du chargement : format JSON invalide", e);
-    }
+    const parsed = JSON.parse(raw);
+    Object.assign(state, parsed.state);
+    parsed.producers?.forEach(saved => {
+      const prod = producers.find(p => p.id === saved.id);
+      if (prod) {
+        prod.cost = saved.cost;
+        prod.count = saved.count;
+        prod.upgrades.forEach((u, i) => {
+          if (saved.upgrades?.[i]) u.purchased = saved.upgrades[i].purchased;
+        });
+      }
+    });
+    parsed.clickUpgrades?.forEach((u, i) => {
+      if (clickUpgrades[i]) clickUpgrades[i].purchased = u.purchased;
+    });
   }
 
   // --- UI producteurs ---
@@ -170,8 +142,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (state.money >= prod.cost) {
         state.money -= prod.cost;
         prod.count++;
-        // coût plus agressif pour ralentir le scaling
-        prod.cost = Math.floor(prod.baseCost * Math.pow(1.20, prod.count));
+        prod.cost = Math.floor(prod.baseCost * Math.pow(1.15, prod.count));
         render();
         saveGame();
       }
@@ -187,7 +158,6 @@ document.addEventListener("DOMContentLoaded", () => {
         const prevPurchased = idx === 0 || prod.upgrades[idx - 1].purchased;
         if (state.fans >= u.costFans && prod.count >= u.required && prevPurchased) {
           state.fans -= u.costFans;
-          // applique, mais n'augmente le rate que si c'est vraiment utile
           if (u.newRate > prod.rate) prod.rate = u.newRate;
           u.purchased = true;
           render();
@@ -245,7 +215,7 @@ document.addEventListener("DOMContentLoaded", () => {
     els.money.textContent = Math.floor(state.money);
     els.fans.textContent = Math.floor(state.fans);
     els.prestige.textContent = state.prestige;
-    els.perClick.textContent = `${state.perClick.toFixed(2)} (x${state.multiplier.toFixed(2)} prestige)`;
+    els.perClick.textContent = `${state.perClick} (x${state.multiplier.toFixed(2)} prestige)`;
     els.perSecond.textContent = `${totalRate().toFixed(1)} (x${state.multiplier.toFixed(2)})`;
 
     // producteurs
@@ -264,7 +234,7 @@ document.addEventListener("DOMContentLoaded", () => {
           btn.textContent = `Upgrade ${idx + 1} acheté`;
           btn.disabled = true;
         } else {
-          btn.textContent = `Upgrade ${idx + 1} (${u.newRate}/s) — ${u.costFans} fans — req: ${u.required}`;
+          btn.textContent = `Upgrade ${idx + 1} (${u.newRate}/s) — ${u.costFans} fans`;
           btn.disabled = !(state.fans >= u.costFans && prod.count >= u.required && prevPurchased);
         }
       });
@@ -293,16 +263,12 @@ document.addEventListener("DOMContentLoaded", () => {
       els.achievements.appendChild(li);
     });
 
-    // prestige : condition de fans en plus
-    const requiredFans = Math.floor(state.nextPrestige / 20);
-    const canPrestige = state.games >= state.nextPrestige && state.fans >= requiredFans;
+    // prestige
+    const canPrestige = state.games >= state.nextPrestige;
     els.prestigeBtn.disabled = !canPrestige;
-
-    // calcul du gain de prestige affiché (rendement décroissant)
-    const potentialGain = 0.25 / (1 + state.prestige * 0.08);
     els.prestigeNote.textContent = canPrestige
-      ? `Prestige disponible — clique pour +${potentialGain.toFixed(3)}x permanent (rendement décroissant)`
-      : `Prestige à ${state.nextPrestige} jeux + ${requiredFans} fans (actuellement ${Math.floor(state.games)} jeux, ${Math.floor(state.fans)} fans)`;
+      ? `Prestige disponible — clique pour +0.5x permanent`
+      : `Prestige à ${state.nextPrestige} jeux (actuellement ${Math.floor(state.games)})`;
   }
 
   // --- Click principal ---
@@ -310,12 +276,9 @@ document.addEventListener("DOMContentLoaded", () => {
     state.totalClicks++;
     let gain = state.perClick;
     if (Math.random() * 100 < state.critChance) gain *= state.critMultiplier;
-
-    // applique correctement le multiplicateur au calcul réel ET à l'affichage
     const totalGain = gain * state.multiplier;
     state.games += totalGain;
     state.money += totalGain;
-
     showFloatingText(`+${totalGain.toFixed(1)}`, e.pageX, e.pageY);
     render();
     saveGame();
@@ -323,14 +286,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // --- Prestige ---
   els.prestigeBtn.addEventListener("click", () => {
-    const requiredFans = Math.floor(state.nextPrestige / 20);
-    if (state.games >= state.nextPrestige && state.fans >= requiredFans) {
-      // gain avec rendements décroissants
-      const gain = 0.25 / (1 + state.prestige * 0.08);
+    if (state.games >= state.nextPrestige) {
       state.prestige++;
-      state.multiplier += gain;
-
-      // reset progression mais garder le prestige/multiplier
+      state.multiplier += 0.5;
       state.games = 0;
       state.money = 0;
       state.fans = 0;
@@ -342,59 +300,29 @@ document.addEventListener("DOMContentLoaded", () => {
       clickUpgrades.forEach(u => u.purchased = false);
       state.perClick = 1;
       state.totalClicks = 0;
-
-      // augmente dynamiquement le seuil pour le prochain prestige (facteur beaucoup plus fort)
-      state.nextPrestige = Math.max(100000, Math.floor(state.nextPrestige * 2 + state.prestige * 50000));
-
+      state.nextPrestige = Math.max(100000, Math.floor(state.nextPrestige * 1.5));
       render();
       saveGame();
     }
   });
 
-  // --- Reset (robuste) ---
+  // --- Reset complet ---
   els.resetBtn?.addEventListener("click", () => {
     if (!confirm("Reset complet : tout sera perdu (y compris le prestige).")) return;
-
-    const possibleKeys = [
-      LS_KEY,
-      "idleGameSave",
-      "videoGameEmpire_final",
-      "videoGameEmpire_save",
-      "idle_save"
-    ];
-    possibleKeys.forEach(k => {
-      if (localStorage.getItem(k) !== null) {
-        localStorage.removeItem(k);
-        console.log(`[Reset] removed localStorage key: ${k}`);
-      }
-    });
-
+    localStorage.removeItem(LS_KEY);
     Object.assign(state, {
-      games: 0,
-      fans: 0,
-      money: 0,
-      prestige: 0,
-      multiplier: 1,
-      perClick: 1,
-      totalClicks: 0,
-      critChance: 5,
-      critMultiplier: 2,
-      achievements: [],
-      nextPrestige: 100000,
+      games: 0, fans: 0, money: 0, prestige: 0,
+      multiplier: 1, perClick: 1, totalClicks: 0,
+      critChance: 5, critMultiplier: 2,
+      achievements: [], nextPrestige: 100000
     });
-
-    producers.forEach(p => {
-      p.count = 0;
-      p.cost = p.baseCost;
-      p.upgrades.forEach(u => u.purchased = false);
-    });
+    producers.forEach(p => { p.count = 0; p.cost = p.baseCost; p.upgrades.forEach(u => u.purchased = false); });
     clickUpgrades.forEach(u => u.purchased = false);
-
     saveGame();
     setTimeout(() => location.reload(), 50);
   });
 
-  // --- Boucle ---
+  // --- Boucle principale ---
   let last = performance.now();
   function loop(now) {
     const delta = (now - last) / 1000;
