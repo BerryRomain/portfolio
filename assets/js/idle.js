@@ -11,6 +11,7 @@ document.addEventListener("DOMContentLoaded", () => {
     multiplier: 1,
     perClickBase: 1,     // base permanente (appliquée via click upgrades & skills)
     perClick: 1,         // valeur effective (recalculée via applySkills)
+    clickRunExtra: 0,    // run-only click extras sum (from clickUpgrades)
     totalClicks: 0,
     critChanceBase: 5,
     critChance: 5,       // valeur effective (appliquée via skills)
@@ -20,6 +21,14 @@ document.addEventListener("DOMContentLoaded", () => {
     nextPrestige: 5000000, // seuil initial (5 000 000)
     autoBuyLast: 0,      // timestamp pour auto-buyer
     autoBuyerEnabled: false,
+
+    // new: prestige shop purchased permanent upgrades
+    prestigeUpgrades: {},
+
+    // golden event / temporary boosts
+    goldenActiveUntil: 0,   // timestamp
+    goldenMultiplier: 1,    // currently active golden multiplier
+    goldenSpawnUntil: 0,    // if a golden button is present, its expiration timestamp
   };
 
   // --- Producteurs (avec origBaseRate pour restaurer au reset) ---
@@ -120,6 +129,13 @@ document.addEventListener("DOMContentLoaded", () => {
     { id: "autobuy_basic", name: "Auto-buy basique", cost: 3, desc: "Auto-acheteur basique (achète la plus petite unité si possible toutes les 30s)", requires: [], purchased: false },
   ];
 
+  // --- Prestige shop definitions (permanent purchasable upgrades with crystals) ---
+  const prestigeShop = [
+    { id: "prod_permanent_5pct", name: "Production permanente +5%", cost: 2, desc: "+5% production permanente (s'applique avant autres bonus)", purchasedKey: "prod_permanent_5pct" },
+    { id: "click_permanent_plus1", name: "Clic permanent +1", cost: 3, desc: "+1 permanent à la base du clic", purchasedKey: "click_permanent_plus1" },
+    { id: "crit_permanent_plus5", name: "Crit permanent +5%", cost: 2, desc: "+5% chance critique permanente", purchasedKey: "crit_permanent_plus5" },
+  ];
+
   // --- DOM refs ---
   const $ = id => document.getElementById(id);
   const els = {
@@ -152,7 +168,7 @@ document.addEventListener("DOMContentLoaded", () => {
   ensureCrystalsStat();
   const crystalsSpan = document.getElementById("crystals");
 
-  // --- UI: prestige progress bar & skill modal ---
+  // --- UI: prestige progress bar & skill modal & shop modal ---
   const prestigePanel = els.prestigeBtn?.parentElement || document.querySelector(".panel:nth-child(3)");
   const progressWrapper = document.createElement("div");
   progressWrapper.style.marginTop = "10px";
@@ -162,11 +178,13 @@ document.addEventListener("DOMContentLoaded", () => {
     </div>
     <div id="prestigeProgressText" style="font-size:13px; color:var(--muted); margin-top:6px;"></div>
     <button id="openSkillsBtn" style="margin-top:8px; display:none;">Ouvrir l'arbre des cristaux</button>
+    <button id="openShopBtn" style="margin-left:8px; margin-top:8px; display:none;">Boutique (cristaux)</button>
   `;
   if (prestigePanel) prestigePanel.appendChild(progressWrapper);
   const progressFill = document.getElementById("prestigeProgressFill");
   const progressText = document.getElementById("prestigeProgressText");
   const openSkillsBtn = document.getElementById("openSkillsBtn");
+  const openShopBtn = document.getElementById("openShopBtn");
 
   const skillModal = document.createElement("div");
   skillModal.id = "skillModal";
@@ -191,83 +209,105 @@ document.addEventListener("DOMContentLoaded", () => {
   const skillList = document.getElementById("skillList");
   const closeSkillModal = document.getElementById("closeSkillModal");
 
+  const shopModal = document.createElement("div");
+  shopModal.id = "shopModal";
+  shopModal.style.position = "fixed";
+  shopModal.style.left = "50%";
+  shopModal.style.top = "60%";
+  shopModal.style.transform = "translate(-50%,-50%)";
+  shopModal.style.background = "var(--card)";
+  shopModal.style.padding = "18px";
+  shopModal.style.borderRadius = "10px";
+  shopModal.style.boxShadow = "0 10px 30px rgba(0,0,0,0.6)";
+  shopModal.style.zIndex = "9999";
+  shopModal.style.display = "none";
+  shopModal.style.minWidth = "420px";
+  shopModal.innerHTML = `<h3 style="margin-top:0;color:var(--accent)">Boutique des cristaux</h3>
+    <div id="shopList" style="display:grid;gap:8px;"></div>
+    <div style="margin-top:12px; display:flex; gap:8px; justify-content:flex-end;">
+      <button id="closeShopModal">Fermer</button>
+    </div>
+  `;
+  document.body.appendChild(shopModal);
+  const shopList = document.getElementById("shopList");
+  const closeShopModal = document.getElementById("closeShopModal");
+
+  // Golden event container
+  const goldenContainerId = "goldenEventContainer";
+  function ensureGoldenContainer() {
+    if (document.getElementById(goldenContainerId)) return;
+    const container = document.createElement("div");
+    container.id = goldenContainerId;
+    container.style.position = "fixed";
+    container.style.left = "12px";
+    container.style.bottom = "12px";
+    container.style.zIndex = "99999";
+    container.style.pointerEvents = "none";
+    document.body.appendChild(container);
+  }
+  ensureGoldenContainer();
+
   // --- Calculs auxiliaires ---
   function totalRate() {
+    // total rate already includes p.rate which incorporates prod skill multipliers
+    // apply golden multiplier and prestige/permanent shop prod bonuses via state.multiplier and shop
+    // state.multiplier already applied globally; permanent prod shop is included in applySkills via prodPermanentMultiplier
     return producers.reduce((sum, p) => sum + p.count * p.rate, 0);
   }
 
-  function computeProdMultiplierFromSkills() {
+  function computeProdMultiplierFromSkillsAndShop() {
     let prodMultiplier = 1;
     skills.forEach(s => {
       if (!s.purchased) return;
       if (s.id === "prod_plus_5") prodMultiplier *= 1.05;
       if (s.id === "prod_plus_10") prodMultiplier *= 1.10;
     });
+    // prestige shop permanent production bonuses
+    if (state.prestigeUpgrades && state.prestigeUpgrades.prod_permanent_5pct) {
+      prodMultiplier *= 1.05;
+    }
     return prodMultiplier;
+  }
+
+  function computeCostReductionFromSkills() {
+    let reducer = 1;
+    if (skills.find(s => s.id === "cost_reduc_3" && s.purchased)) reducer *= 0.97;
+    return reducer;
   }
 
   function canGainCrystal() {
     return state.games >= state.nextPrestige;
   }
 
-  // --- Rebuild perClickBase from purchased clickUpgrades and skills (safe init) ---
-  function rebuildPerClickBaseFromPurchases() {
-    // Base always starts at 1, only skills modify permanence.
+  // --- Rebuild perClickBase from purchased skills only (permanent) ---
+  function rebuildPerClickBaseFromSkillsAndShop() {
     let base = 1;
-    // clickUpgrades are NOT permanent anymore (we reset them at prestige), but if loaded from save we still
-    // respect their purchased flag for the current run only. However you asked that only skills persist:
-    // therefore, for permanent base we only consider skill "click_plus_1".
     const sk = skills.find(s => s.id === "click_plus_1");
     if (sk && sk.purchased) base += 1;
+    // prestige shop click permanent +1
+    if (state.prestigeUpgrades && state.prestigeUpgrades.click_permanent_plus1) base += 1;
     state.perClickBase = base;
   }
 
   // --- Apply skills (recalculate perClick, rates, costs, crit) ---
   function applySkills() {
-    // Reset derived values to base
-    // ensure perClickBase is respected as the permanent base
-    state.perClick = state.perClickBase; // will multiply by multiplier at end
-    state.critChance = state.critChanceBase;
+    // Rebuild permanent base
+    rebuildPerClickBaseFromSkillsAndShop();
 
-    // reset producers to original baseRate & ensure cost consistent
+    // start from permanent base
+    // run-only click upgrades will be added below as run extras (they're not persistent across prestige)
+    state.perClick = state.perClickBase;
+
+    // crit
+    state.critChance = state.critChanceBase;
+    if (skills.find(s => s.id === "crit_plus_5" && s.purchased)) state.critChance += 5;
+    if (state.prestigeUpgrades && state.prestigeUpgrades.crit_permanent_plus5) state.critChance += 5;
+
+    // producers: compute multiplier from skills & shop permanent prod
+    const prodMultiplier = computeProdMultiplierFromSkillsAndShop();
+
     producers.forEach(p => {
       p.baseRate = p.origBaseRate;
-      p.rate = p.baseRate;
-      p.cost = p.cost ?? p.baseCost;
-    });
-
-    // accumulation vars
-    let prodMultiplier = 1;
-    let costReduction = 1;
-    let autobuyEnabled = false;
-
-    // apply skills
-    skills.forEach(s => {
-      if (!s.purchased) return;
-      switch (s.id) {
-        case "click_plus_1":
-          // permanent effect already handled in rebuildPerClickBaseFromPurchases()
-          break;
-        case "prod_plus_5":
-          prodMultiplier *= 1.05;
-          break;
-        case "prod_plus_10":
-          prodMultiplier *= 1.10;
-          break;
-        case "crit_plus_5":
-          state.critChance = state.critChanceBase + 5;
-          break;
-        case "cost_reduc_3":
-          costReduction *= 0.97;
-          break;
-        case "autobuy_basic":
-          autobuyEnabled = true;
-          break;
-      }
-    });
-
-    // Apply production multiplier to producers and to their upgrades (upgrades are run-based and get the multiplier too)
-    producers.forEach(p => {
       let effectiveRate = p.baseRate * prodMultiplier;
       p.upgrades.forEach(u => {
         if (u.purchased) {
@@ -278,16 +318,30 @@ document.addEventListener("DOMContentLoaded", () => {
       p.rate = effectiveRate;
     });
 
-    // apply cost reductions; ensure cost follows scaling pattern before reduction
+    // costs: apply scaling and any cost reduction skill
+    const costReduction = computeCostReductionFromSkills();
     producers.forEach(p => {
-      p.cost = Math.max(p.cost ?? p.baseCost, Math.floor(p.baseCost * Math.pow(1.10, p.count)));
-      p.cost = Math.floor(p.cost * costReduction);
+      p.cost = Math.floor(p.baseCost * Math.pow(1.10, p.count));
+      p.cost = Math.max(1, Math.floor(p.cost * costReduction));
     });
 
-    state.autoBuyerEnabled = autobuyEnabled;
+    state.autoBuyerEnabled = !!skills.find(s => s.id === "autobuy_basic" && s.purchased);
 
-    // finally, perClick should be permanent base times permanent multiplier (from crystalsTotal)
-    state.perClick = state.perClickBase * state.multiplier;
+    // run-only click upgrades: sum extraGain where purchased
+    let runClickExtra = 0;
+    clickUpgrades.forEach(u => { if (u.purchased) runClickExtra += u.extraGain; });
+    state.clickRunExtra = runClickExtra;
+
+    // golden boost multiplier
+    const now = Date.now();
+    const goldenActive = state.goldenActiveUntil && state.goldenActiveUntil > now;
+    const goldenMult = goldenActive ? state.goldenMultiplier : 1;
+
+    // finally: perClick = (permanent base + run extras) * global multiplier (from crystalsTotal) * goldenMult
+    state.perClick = (state.perClickBase + state.clickRunExtra) * state.multiplier * goldenMult;
+
+    // also apply goldenMult to producers when computing gain per tick elsewhere via state.multiplier in loop,
+    // we will multiply when applying totalRate in loop (we use state.multiplier * goldenMult there)
   }
 
   // --- Achievements (persistent) ---
@@ -324,6 +378,7 @@ document.addEventListener("DOMContentLoaded", () => {
       producers,
       clickUpgrades,
       skills,
+      prestigeShopState: state.prestigeUpgrades || {},
     };
     try {
       localStorage.setItem(LS_KEY, JSON.stringify(payload));
@@ -341,6 +396,10 @@ document.addEventListener("DOMContentLoaded", () => {
       // Ignore derived fields from save (like perClick) to avoid carrying "dirty" values
       if (parsed.state) {
         delete parsed.state.perClick;
+        delete parsed.state.clickRunExtra;
+        delete parsed.state.goldenActiveUntil;
+        delete parsed.state.goldenMultiplier;
+        delete parsed.state.goldenSpawnUntil;
       }
 
       if (parsed.state) {
@@ -360,20 +419,21 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       });
 
-      // restore clickUpgrades purchased flags for the run (they will not be permanent after prestige)
       parsed.clickUpgrades?.forEach((u, i) => { if (clickUpgrades[i]) clickUpgrades[i].purchased = !!u.purchased; });
 
-      // restore skills (these ARE permanent)
       parsed.skills?.forEach((s, i) => { if (skills[i]) skills[i].purchased = !!s.purchased; });
+
+      if (parsed.prestigeShopState) {
+        state.prestigeUpgrades = parsed.prestigeShopState;
+      } else {
+        state.prestigeUpgrades = {};
+      }
 
       if (parsed.state?.achievementsUnlocked) {
         state.achievementsUnlocked = parsed.state.achievementsUnlocked;
       }
 
-      // Rebuild permanent base from skills only (we want only skills to persist)
-      rebuildPerClickBaseFromPurchases();
-
-      // Ensure multiplier reflects crystalsTotal on load
+      // ensure multiplier corresponds to crystalsTotal on load
       state.multiplier = 1 + (state.crystalsTotal || 0) * 0.15;
 
       applySkills();
@@ -398,7 +458,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (state.money >= prod.cost) {
         state.money -= prod.cost;
         prod.count++;
-        prod.cost = Math.floor(prod.cost * 1.10);
+        prod.cost = Math.floor(prod.baseCost * Math.pow(1.10, prod.count));
         applySkills();
         render();
         saveGame();
@@ -436,15 +496,8 @@ document.addEventListener("DOMContentLoaded", () => {
     btn.addEventListener("click", () => {
       const prevPurchased = idx === 0 || clickUpgrades[idx - 1].purchased;
       if (state.totalClicks >= u.requiredClicks && prevPurchased && !u.purchased) {
-        // In this design clickUpgrades are NOT permanent across prestiges.
-        // They affect only the current run and are saved as flags but will be reset on prestige.
         u.purchased = true;
-        // Increase effective per-click for the current run by altering perClickBase temporarily,
-        // but permanent base is only from skills — so we update perClickBase for the run:
-        // we track perClickBase as "permanent base" (skills only) and apply clickUpgrades on top when computing perClick.
-        // To implement that cleanly: we'll compute run additions inside applySkills by reading clickUpgrades flags.
-        // For convenience, here we just call applySkills() which reads perClickBase and multiplier.
-        // We'll let applySkills include clickUpgrades' extraGain per run.
+        // run-only upgrades: applySkills will sum them as run extras
         applySkills();
         render();
         saveGame();
@@ -453,85 +506,6 @@ document.addEventListener("DOMContentLoaded", () => {
     li.appendChild(btn);
     els.clickUpgradesList.appendChild(li);
   });
-
-  // Adjust applySkills to also consider run-only clickUpgrades (they'll be reset at prestige)
-  // We'll wrap the original applySkills behavior to add clickUpgrades' extras for the run.
-  // (Note: applySkills already sets state.perClick = state.perClickBase * state.multiplier;
-  // we will temporarily add run click upgrades before multiplication)
-  const originalApplySkills = applySkills;
-  function applySkills() {
-    // Recompute permanent base from skills
-    rebuildPerClickBaseFromPurchases();
-
-    // start with permanent base
-    state.perClick = state.perClickBase;
-
-    // Add run-only clickUpgrades extraGain
-    let runClickExtra = 0;
-    clickUpgrades.forEach(u => { if (u.purchased) runClickExtra += u.extraGain; });
-
-    state.perClick += runClickExtra;
-
-    // Now execute original skill logic for producers / multiplier / costs etc.
-    // We'll duplicate the producer/skill logic here so it's consistent (avoid double-wrapping).
-    // Reset producers to original baseRate & ensure cost consistent
-    producers.forEach(p => {
-      p.baseRate = p.origBaseRate;
-      p.rate = p.baseRate;
-      p.cost = p.cost ?? p.baseCost;
-    });
-
-    let prodMultiplier = 1;
-    let costReduction = 1;
-    let autobuyEnabled = false;
-
-    skills.forEach(s => {
-      if (!s.purchased) return;
-      switch (s.id) {
-        case "click_plus_1":
-          // counted in rebuildPerClickBaseFromPurchases()
-          break;
-        case "prod_plus_5":
-          prodMultiplier *= 1.05;
-          break;
-        case "prod_plus_10":
-          prodMultiplier *= 1.10;
-          break;
-        case "crit_plus_5":
-          state.critChance = state.critChanceBase + 5;
-          break;
-        case "cost_reduc_3":
-          costReduction *= 0.97;
-          break;
-        case "autobuy_basic":
-          autobuyEnabled = true;
-          break;
-      }
-    });
-
-    // Apply production multiplier to producers and to their upgrades
-    producers.forEach(p => {
-      let effectiveRate = p.baseRate * prodMultiplier;
-      p.upgrades.forEach(u => {
-        if (u.purchased) {
-          const upgradedRate = u.newRate * prodMultiplier;
-          if (upgradedRate > effectiveRate) effectiveRate = upgradedRate;
-        }
-      });
-      p.rate = effectiveRate;
-    });
-
-    // apply cost reductions; ensure cost follows scaling pattern before reduction
-    producers.forEach(p => {
-      p.cost = Math.max(p.cost ?? p.baseCost, Math.floor(p.baseCost * Math.pow(1.10, p.count)));
-      p.cost = Math.floor(p.cost * costReduction);
-    });
-
-    state.autoBuyerEnabled = autobuyEnabled;
-
-    // finally, apply global multiplier from crystalsTotal to perClick
-    state.perClick = state.perClick * state.multiplier;
-  }
 
   // --- skill modal UI population ---
   function rebuildSkillList() {
@@ -571,10 +545,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         state.crystals -= s.cost;
         s.purchased = true;
-        // if skill modifies permanent base, apply it:
-        if (s.id === "click_plus_1") {
-          // permanent base will incorporate this on next applySkills via rebuildPerClickBaseFromPurchases
-        }
+        // applySkills will take care of permanent changes
         applySkills();
         saveGame();
         rebuildSkillList();
@@ -601,23 +572,107 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   closeSkillModal.addEventListener("click", () => skillModal.style.display = "none");
 
-  // --- Floating text ---
-  function showFloatingText(text, x, y) {
-    const span = document.createElement("span");
-    span.textContent = text;
-    span.style.position = "absolute";
-    span.style.left = `${x}px`;
-    span.style.top = `${y}px`;
-    span.style.pointerEvents = "none";
-    span.style.color = "lime";
-    span.style.fontWeight = "bold";
-    span.style.transition = "all 1s ease-out";
-    document.body.appendChild(span);
-    requestAnimationFrame(() => {
-      span.style.transform = "translateY(-50px)";
-      span.style.opacity = "0";
+  // --- shop UI population ---
+  function rebuildShopList() {
+    shopList.innerHTML = "";
+    prestigeShop.forEach(item => {
+      const row = document.createElement("div");
+      row.style.display = "flex";
+      row.style.justifyContent = "space-between";
+      row.style.alignItems = "center";
+      row.style.padding = "6px";
+      row.style.borderRadius = "6px";
+
+      const left = document.createElement("div");
+      left.innerHTML = `<strong>${item.name}</strong><div style="font-size:12px;color:var(--muted)">${item.desc}</div>`;
+      row.appendChild(left);
+
+      const right = document.createElement("div");
+      right.style.display = "flex";
+      right.style.gap = "8px";
+      right.style.alignItems = "center";
+
+      const cost = document.createElement("div");
+      cost.textContent = `${item.cost} ✨`;
+      cost.style.fontSize = "13px";
+      cost.style.color = "var(--muted)";
+      right.appendChild(cost);
+
+      const btn = document.createElement("button");
+      const bought = state.prestigeUpgrades && state.prestigeUpgrades[item.purchasedKey];
+      btn.textContent = bought ? "Acheté" : "Acheter";
+      btn.disabled = bought || state.crystals < item.cost;
+      btn.addEventListener("click", () => {
+        if (bought) return;
+        if (state.crystals < item.cost) { alert("Pas assez de cristaux."); return; }
+        state.crystals -= item.cost;
+        state.prestigeUpgrades = state.prestigeUpgrades || {};
+        state.prestigeUpgrades[item.purchasedKey] = true;
+        // apply immediate effects
+        if (item.purchasedKey === "click_permanent_plus1") rebuildPerClickBaseFromSkillsAndShop();
+        applySkills();
+        saveGame();
+        rebuildShopList();
+        render();
+      });
+      right.appendChild(btn);
+
+      row.appendChild(right);
+      shopList.appendChild(row);
     });
-    setTimeout(() => span.remove(), 1000);
+  }
+
+  openShopBtn?.addEventListener("click", () => {
+    rebuildShopList();
+    shopModal.style.display = "block";
+  });
+  closeShopModal.addEventListener("click", () => shopModal.style.display = "none");
+
+  // --- Golden event functions ---
+  function spawnGoldenEvent() {
+    const now = Date.now();
+    // only spawn if none currently visible
+    if (state.goldenSpawnUntil && state.goldenSpawnUntil > now) return;
+    // create golden button in container
+    const container = document.getElementById(goldenContainerId);
+    if (!container) return;
+    const btn = document.createElement("button");
+    btn.textContent = "✨ Golden Review !";
+    btn.style.pointerEvents = "auto";
+    btn.style.padding = "10px 12px";
+    btn.style.borderRadius = "8px";
+    btn.style.background = "linear-gradient(90deg,#f59e0b,#f97316)";
+    btn.style.color = "#000";
+    btn.style.fontWeight = "700";
+    btn.style.boxShadow = "0 6px 20px rgba(0,0,0,0.4)";
+    btn.style.border = "none";
+    btn.style.cursor = "pointer";
+    container.appendChild(btn);
+
+    const spawnDuration = 10000; // 10s to click
+    state.goldenSpawnUntil = now + spawnDuration;
+
+    let removed = false;
+    const cleanup = () => {
+      if (removed) return;
+      removed = true;
+      if (btn.parentElement) btn.parentElement.removeChild(btn);
+      state.goldenSpawnUntil = 0;
+    };
+
+    btn.addEventListener("click", () => {
+      // grant golden boost: 30s multiplier of 2 (configurable)
+      const boostDuration = 30000;
+      state.goldenActiveUntil = Date.now() + boostDuration;
+      state.goldenMultiplier = 2; // double production & clicks
+      applySkills(); // to re-evaluate perClick with golden
+      cleanup();
+      saveGame();
+      render();
+    });
+
+    // auto cleanup after spawnDuration
+    setTimeout(cleanup, spawnDuration);
   }
 
   // --- Render (robust update for #prestige and #crystals) ---
@@ -632,14 +687,17 @@ document.addEventListener("DOMContentLoaded", () => {
     if (prestigeEl) prestigeEl.textContent = `${state.crystalsTotal} (disponibles: ${state.crystals})`;
     if (crystalsSpan) crystalsSpan.textContent = state.crystals;
 
-    // Recompute perClick display (perClick already set by applySkills to perClickBase*multiplier + run extras)
+    // Ensure applySkills kept state.perClick updated; display it
     if (els.perClick) els.perClick.textContent = `${state.perClick.toFixed(2)} (x${state.multiplier.toFixed(2)} prestige)`;
 
-    // perSecond: show totalRate * multiplier
-    if (els.perSecond) els.perSecond.textContent = `${(totalRate() * state.multiplier).toFixed(2)} (x${state.multiplier.toFixed(2)})`;
+    // perSecond: show totalRate * multiplier * goldenMult
+    const now = Date.now();
+    const goldenActive = state.goldenActiveUntil && state.goldenActiveUntil > now;
+    const goldenMult = goldenActive ? state.goldenMultiplier : 1;
+    if (els.perSecond) els.perSecond.textContent = `${(totalRate() * state.multiplier * goldenMult).toFixed(2)} (x${state.multiplier.toFixed(2)})`;
 
     // producers
-    const displayProdMultiplier = computeProdMultiplierFromSkills();
+    const displayProdMultiplier = computeProdMultiplierFromSkillsAndShop();
     producers.forEach(prod => {
       const li = els.upgrades.querySelector(`li[data-id=${prod.id}]`);
       if (!li) return;
@@ -663,7 +721,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     });
 
-    // click upgrades
+    // click upgrades display
     const clickBtns = els.clickUpgradesList.querySelectorAll(".click-upgrade-btn");
     clickBtns.forEach((btn, idx) => {
       const u = clickUpgrades[idx];
@@ -693,10 +751,14 @@ document.addEventListener("DOMContentLoaded", () => {
     if (progressFill) progressFill.style.width = `${(progress * 100).toFixed(1)}%`;
     if (progressText) progressText.textContent = `${Math.floor(state.games)} / ${state.nextPrestige} jeux (${(progress * 100).toFixed(1)}%)`;
 
-    // open skills button visible if ever prestiged (crystalsTotal>0) so player can view tree
+    // open skills & shop button visible if ever prestiged (crystalsTotal>0) so player can view tree
     if (openSkillsBtn) {
       openSkillsBtn.style.display = state.crystalsTotal > 0 ? "inline-block" : "none";
       openSkillsBtn.disabled = state.crystals <= 0;
+    }
+    if (openShopBtn) {
+      openShopBtn.style.display = state.crystalsTotal > 0 ? "inline-block" : "none";
+      openShopBtn.disabled = false;
     }
 
     // prestige availability
@@ -705,18 +767,17 @@ document.addEventListener("DOMContentLoaded", () => {
     if (els.prestigeNote) els.prestigeNote.textContent = canPrest
       ? `Prestige disponible — clique pour gagner 1 cristal`
       : `Prestige requis : ${state.nextPrestige} jeux (actuellement ${Math.floor(state.games)})`;
+
+    // golden button lifetime indicator (if exists, container holds it)
+    // we don't need extra UI here; the button is in the bottom-left container
   }
 
   // --- Main click ---
   els.makeGame.addEventListener("click", e => {
     state.totalClicks++;
-    // ensure perClick is up-to-date (applySkills keeps it correct)
-    state.perClick = state.perClickBase * state.multiplier;
-    // add run-only click upgrades (they're included in applySkills normally)
-    // but we ensure applySkills is called regularly by loop/render
+    applySkills(); // ensure state.perClick is fresh
     let gain = state.perClick;
-    // include run-only extras (if applySkills hasn't run since purchasing)
-    clickUpgrades.forEach(u => { if (u.purchased) gain += u.extraGain * state.multiplier; });
+    // crit
     if (Math.random() * 100 < state.critChance) gain *= state.critMultiplier;
     const totalGain = gain;
     state.games += totalGain;
@@ -737,7 +798,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // update permanent multiplier derived from crystalsTotal
     state.multiplier = 1 + state.crystalsTotal * 0.15;
 
-    // Reset run progress, but persist ONLY skills & crystals & achievementsUnlocked
+    // Reset run progress, but persist ONLY skills & crystals & achievementsUnlocked & prestigeUpgrades
     state.games = 0;
     state.money = 0;
     state.fans = 0;
@@ -752,14 +813,14 @@ document.addEventListener("DOMContentLoaded", () => {
       p.upgrades.forEach(u => u.purchased = false);
     });
 
-    // IMPORTANT: reset clickUpgrades (they are NOT permanent now)
+    // reset clickUpgrades (they are NOT permanent now)
     clickUpgrades.forEach(u => u.purchased = false);
 
     // increase nextPrestige strongly (configurable)
     state.nextPrestige = Math.max(5000000, Math.floor(state.nextPrestige * 2.5 + state.crystalsTotal * 500000));
 
-    // rebuild permanent perClickBase from skills (skills persist), and apply skills
-    rebuildPerClickBaseFromPurchases();
+    // rebuild permanent perClickBase from skills and shop (skills & shop persist), and apply skills
+    rebuildPerClickBaseFromSkillsAndShop();
     applySkills();
 
     // update UI & save
@@ -779,7 +840,9 @@ document.addEventListener("DOMContentLoaded", () => {
       games: 0, fans: 0, money: 0, crystals: 0, crystalsTotal: 0,
       multiplier: 1, perClickBase: 1, perClick: 1, totalClicks: 0,
       critChanceBase: 5, critChance: 5, critMultiplier: 2, achievementsUnlocked: [], achievements: [],
-      nextPrestige: 5000000, autoBuyLast: 0, autoBuyerEnabled: false
+      nextPrestige: 5000000, autoBuyLast: 0, autoBuyerEnabled: false,
+      prestigeUpgrades: {},
+      goldenActiveUntil: 0, goldenMultiplier: 1, goldenSpawnUntil: 0,
     });
     producers.forEach(p => {
       p.count = 0;
@@ -810,10 +873,41 @@ document.addEventListener("DOMContentLoaded", () => {
     const item = affordable[0];
     state.money -= item.cost;
     item.count++;
-    item.cost = Math.floor(item.cost * 1.10);
+    item.cost = Math.floor(item.baseCost * Math.pow(1.10, item.count));
     state.autoBuyLast = now;
     saveGame();
     render();
+  }
+
+  // --- Golden spawn chance logic ---
+  let lastGoldenCheck = performance.now();
+  function maybeSpawnGolden(deltaSec) {
+    // small chance per second to spawn when none present
+    const chancePerSecond = 0.002; // ~0.2% chance per second -> rare
+    const now = Date.now();
+    if (state.goldenSpawnUntil && state.goldenSpawnUntil > now) return; // already spawned
+    if (Math.random() < chancePerSecond * deltaSec) {
+      spawnGoldenEvent();
+    }
+  }
+
+  // --- Floating text ---
+  function showFloatingText(text, x, y) {
+    const span = document.createElement("span");
+    span.textContent = text;
+    span.style.position = "absolute";
+    span.style.left = `${x}px`;
+    span.style.top = `${y}px`;
+    span.style.pointerEvents = "none";
+    span.style.color = "lime";
+    span.style.fontWeight = "bold";
+    span.style.transition = "all 1s ease-out";
+    document.body.appendChild(span);
+    requestAnimationFrame(() => {
+      span.style.transform = "translateY(-50px)";
+      span.style.opacity = "0";
+    });
+    setTimeout(() => span.remove(), 1000);
   }
 
   // --- Loop ---
@@ -821,141 +915,151 @@ document.addEventListener("DOMContentLoaded", () => {
   function loop(now) {
     const delta = (now - last) / 1000;
     last = now;
-    const gain = totalRate() * state.multiplier * delta;
+
+    // golden spawn check
+    maybeSpawnGolden(delta);
+
+    // production tick: include golden multiplier if active
+    const nowTs = Date.now();
+    const goldenActive = state.goldenActiveUntil && state.goldenActiveUntil > nowTs;
+    const goldenMult = goldenActive ? state.goldenMultiplier : 1;
+
+    // production gain
+    const gain = totalRate() * state.multiplier * goldenMult * delta;
     state.games += gain;
     state.money += gain;
     state.fans += gain / 10;
-    tryAutoBuy();
-    applySkills(); // ensure derived values stay up to date each tick
+
+    // keep derived fields up to date
+    applySkills();
     render();
     saveGame();
     requestAnimationFrame(loop);
   }
-/* ---------- Dev panel (toggle Ctrl+D) ---------- */
-(function installDevPanel(){
-  let devVisible = false;
-  const panelId = "devPanel";
 
-  function createPanel() {
-    if (document.getElementById(panelId)) return;
-    const p = document.createElement("div");
-    p.id = panelId;
-    p.style.position = "fixed";
-    p.style.right = "12px";
-    p.style.top = "12px";
-    p.style.zIndex = "99999";
-    p.style.background = "rgba(0,0,0,0.8)";
-    p.style.color = "#fff";
-    p.style.padding = "10px";
-    p.style.borderRadius = "8px";
-    p.style.minWidth = "220px";
-    p.style.fontSize = "13px";
-    p.style.boxShadow = "0 6px 20px rgba(0,0,0,0.6)";
+  /* ---------- Dev panel (toggle Ctrl+D) ---------- */
+  (function installDevPanel(){
+    let devVisible = false;
+    const panelId = "devPanel";
 
-    p.innerHTML = `
-      <div style="font-weight:700;margin-bottom:8px">DEV PANEL</div>
-      <div style="display:flex;flex-direction:column;gap:6px">
-        <button id="devGiveMoney">+1 000 000 $</button>
-        <button id="devGiveCryst">+1 cristal</button>
-        <button id="devAddAllProd">+1 à chaque producteur</button>
-        <button id="devMaxProds">+10 à chaque producteur</button>
-        <button id="devToggleAuto">Toggle Auto-buy</button>
-        <button id="devResetRun">Reset run (prestige-like)</button>
-        <button id="devExport">Exporter save (console)</button>
-        <button id="devImport">Importer save (invite)</button>
-        <button id="devClose" style="background:#b33;color:#fff">Fermer</button>
-      </div>
-      <div id="devInfo" style="margin-top:8px;font-size:12px;color:#ddd"></div>
-    `;
-    document.body.appendChild(p);
+    function createPanel() {
+      if (document.getElementById(panelId)) return;
+      const p = document.createElement("div");
+      p.id = panelId;
+      p.style.position = "fixed";
+      p.style.right = "12px";
+      p.style.top = "12px";
+      p.style.zIndex = "99999";
+      p.style.background = "rgba(0,0,0,0.8)";
+      p.style.color = "#fff";
+      p.style.padding = "10px";
+      p.style.borderRadius = "8px";
+      p.style.minWidth = "220px";
+      p.style.fontSize = "13px";
+      p.style.boxShadow = "0 6px 20px rgba(0,0,0,0.6)";
 
-    // assign handlers (use global functions state, render, saveGame if present)
-    p.querySelector("#devGiveMoney").addEventListener("click", () => {
-      state.money = (state.money || 0) + 1_000_000;
-      render(); saveGame();
-    });
-    p.querySelector("#devGiveCryst").addEventListener("click", () => {
-      state.crystals = (state.crystals || 0) + 1;
-      state.crystalsTotal = (state.crystalsTotal || 0); // keep total separate if needed
-      // if you want to increment total as well: state.crystalsTotal++;
-      applySkills(); render(); saveGame();
-    });
-    p.querySelector("#devAddAllProd").addEventListener("click", () => {
-      producers.forEach(pr => { pr.count = (pr.count||0) + 1; pr.cost = Math.floor(pr.baseCost * Math.pow(1.10, pr.count)); });
-      applySkills(); render(); saveGame();
-    });
-    p.querySelector("#devMaxProds").addEventListener("click", () => {
-      producers.forEach(pr => { pr.count = (pr.count||0) + 10; pr.cost = Math.floor(pr.baseCost * Math.pow(1.10, pr.count)); });
-      applySkills(); render(); saveGame();
-    });
-    p.querySelector("#devToggleAuto").addEventListener("click", () => {
-      state.autoBuyerEnabled = !state.autoBuyerEnabled;
-      render(); saveGame();
-    });
-    p.querySelector("#devResetRun").addEventListener("click", () => {
-      // Mimic a run reset without touching crystals/skills:
-      state.games = 0; state.money = 0; state.fans = 0; state.totalClicks = 0;
-      producers.forEach(p => { p.count = 0; p.cost = p.baseCost; p.upgrades.forEach(u => u.purchased = false); });
-      clickUpgrades.forEach(u => u.purchased = false); // run-only
-      applySkills(); render(); saveGame();
-    });
-    p.querySelector("#devExport").addEventListener("click", () => {
-      try {
-        const data = JSON.stringify({ state, producers, clickUpgrades, skills });
-        console.log("SAVE EXPORT:", data);
-        const info = p.querySelector("#devInfo");
-        info.textContent = "Save affiché dans la console (CTRL+SHIFT+J).";
-      } catch(e) { console.warn(e); }
-    });
-    p.querySelector("#devImport").addEventListener("click", () => {
-      const input = prompt("Colle ici le JSON de la sauvegarde à importer :");
-      if (!input) return;
-      try {
-        const parsed = JSON.parse(input);
-        if (parsed.state) {
-          Object.keys(parsed.state).forEach(k => { if (k in state) state[k] = parsed.state[k]; });
-        }
-        if (parsed.producers) {
-          parsed.producers.forEach(saved => {
-            const prod = producers.find(p => p.id === saved.id);
-            if (prod) { prod.count = saved.count || prod.count; prod.cost = saved.cost || prod.cost; prod.upgrades.forEach((u,i)=>{ u.purchased = !!(saved.upgrades?.[i]?.purchased); }); }
-          });
-        }
-        if (parsed.clickUpgrades) parsed.clickUpgrades.forEach((u,i) => { if (clickUpgrades[i]) clickUpgrades[i].purchased = !!u.purchased; });
-        if (parsed.skills) parsed.skills.forEach((s,i) => { if (skills[i]) skills[i].purchased = !!s.purchased; });
-        rebuildPerClickBaseFromPurchases();
+      p.innerHTML = `
+        <div style="font-weight:700;margin-bottom:8px">DEV PANEL</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <button id="devGiveMoney">+1 000 000 $</button>
+          <button id="devGiveCryst">+1 cristal</button>
+          <button id="devAddAllProd">+1 à chaque producteur</button>
+          <button id="devMaxProds">+10 à chaque producteur</button>
+          <button id="devToggleAuto">Toggle Auto-buy</button>
+          <button id="devResetRun">Reset run (prestige-like)</button>
+          <button id="devExport">Exporter save (console)</button>
+          <button id="devImport">Importer save (invite)</button>
+          <button id="devClose" style="background:#b33;color:#fff">Fermer</button>
+        </div>
+        <div id="devInfo" style="margin-top:8px;font-size:12px;color:#ddd"></div>
+      `;
+      document.body.appendChild(p);
+
+      p.querySelector("#devGiveMoney").addEventListener("click", () => {
+        state.money = (state.money || 0) + 1_000_000;
+        render(); saveGame();
+      });
+      p.querySelector("#devGiveCryst").addEventListener("click", () => {
+        state.crystals = (state.crystals || 0) + 1;
+        state.crystalsTotal = (state.crystalsTotal || 0); // keep total separate if needed
         applySkills(); render(); saveGame();
-        p.querySelector("#devInfo").textContent = "Import réussi.";
-      } catch (err) {
-        p.querySelector("#devInfo").textContent = "Import failed: JSON invalide.";
-        console.warn(err);
+      });
+      p.querySelector("#devAddAllProd").addEventListener("click", () => {
+        producers.forEach(pr => { pr.count = (pr.count||0) + 1; pr.cost = Math.floor(pr.baseCost * Math.pow(1.10, pr.count)); });
+        applySkills(); render(); saveGame();
+      });
+      p.querySelector("#devMaxProds").addEventListener("click", () => {
+        producers.forEach(pr => { pr.count = (pr.count||0) + 10; pr.cost = Math.floor(pr.baseCost * Math.pow(1.10, pr.count)); });
+        applySkills(); render(); saveGame();
+      });
+      p.querySelector("#devToggleAuto").addEventListener("click", () => {
+        state.autoBuyerEnabled = !state.autoBuyerEnabled;
+        render(); saveGame();
+      });
+      p.querySelector("#devResetRun").addEventListener("click", () => {
+        // Mimic a run reset without touching crystals/skills:
+        state.games = 0; state.money = 0; state.fans = 0; state.totalClicks = 0;
+        producers.forEach(p => { p.count = 0; p.cost = p.baseCost; p.upgrades.forEach(u => u.purchased = false); });
+        clickUpgrades.forEach(u => u.purchased = false); // run-only
+        applySkills(); render(); saveGame();
+      });
+      p.querySelector("#devExport").addEventListener("click", () => {
+        try {
+          const data = JSON.stringify({ state, producers, clickUpgrades, skills, prestigeShopState: state.prestigeUpgrades });
+          console.log("SAVE EXPORT:", data);
+          const info = p.querySelector("#devInfo");
+          info.textContent = "Save affiché dans la console (CTRL+SHIFT+J).";
+        } catch(e) { console.warn(e); }
+      });
+      p.querySelector("#devImport").addEventListener("click", () => {
+        const input = prompt("Colle ici le JSON de la sauvegarde à importer :");
+        if (!input) return;
+        try {
+          const parsed = JSON.parse(input);
+          if (parsed.state) {
+            Object.keys(parsed.state).forEach(k => { if (k in state) state[k] = parsed.state[k]; });
+          }
+          if (parsed.producers) {
+            parsed.producers.forEach(saved => {
+              const prod = producers.find(p => p.id === saved.id);
+              if (prod) { prod.count = saved.count || prod.count; prod.cost = saved.cost || prod.cost; prod.upgrades.forEach((u,i)=>{ u.purchased = !!(saved.upgrades?.[i]?.purchased); }); }
+            });
+          }
+          if (parsed.clickUpgrades) parsed.clickUpgrades.forEach((u,i) => { if (clickUpgrades[i]) clickUpgrades[i].purchased = !!u.purchased; });
+          if (parsed.skills) parsed.skills.forEach((s,i) => { if (skills[i]) skills[i].purchased = !!s.purchased; });
+          if (parsed.prestigeShopState) state.prestigeUpgrades = parsed.prestigeShopState;
+          rebuildPerClickBaseFromSkillsAndShop();
+          applySkills(); render(); saveGame();
+          p.querySelector("#devInfo").textContent = "Import réussi.";
+        } catch (err) {
+          p.querySelector("#devInfo").textContent = "Import failed: JSON invalide.";
+          console.warn(err);
+        }
+      });
+      p.querySelector("#devClose").addEventListener("click", toggleDevPanel);
+    }
+
+    function removePanel() {
+      const el = document.getElementById(panelId);
+      if (el) el.remove();
+    }
+
+    function toggleDevPanel() {
+      devVisible = !devVisible;
+      if (devVisible) createPanel();
+      else removePanel();
+    }
+
+    // keystroke listener: Ctrl+D toggles
+    window.addEventListener("keydown", (e) => {
+      const tag = (document.activeElement && document.activeElement.tagName) || "";
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (e.ctrlKey && (e.key === "d" || e.key === "D")) {
+        e.preventDefault();
+        toggleDevPanel();
       }
     });
-    p.querySelector("#devClose").addEventListener("click", toggleDevPanel);
-  }
-
-  function removePanel() {
-    const el = document.getElementById(panelId);
-    if (el) el.remove();
-  }
-
-  function toggleDevPanel() {
-    devVisible = !devVisible;
-    if (devVisible) createPanel();
-    else removePanel();
-  }
-
-  // keystroke listener: Ctrl+D toggles
-  window.addEventListener("keydown", (e) => {
-    // ignore if focus is in input/textarea
-    const tag = (document.activeElement && document.activeElement.tagName) || "";
-    if (tag === "INPUT" || tag === "TEXTAREA") return;
-    if (e.ctrlKey && (e.key === "d" || e.key === "D")) {
-      e.preventDefault();
-      toggleDevPanel();
-    }
-  });
-})();
+  })();
 
   // --- Init ---
   loadGame();
