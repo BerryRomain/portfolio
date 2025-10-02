@@ -204,68 +204,71 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // --- Apply skills (recalculate perClick, rates, costs, crit) ---
   function applySkills() {
-    // Reset derived values to base
-    state.perClick = state.perClickBase;
-    state.critChance = state.critChanceBase;
+  // --- Reset valeurs de base ---
+  state.perClick = state.perClickBase;
+  state.critChance = state.critChanceBase;
 
-    // reset producers to original baseRate & ensure cost consistent
-    producers.forEach(p => {
-      p.baseRate = p.origBaseRate;
-      p.rate = p.baseRate;
-      p.cost = p.cost ?? p.baseCost;
-    });
+  // Reset producteurs
+  producers.forEach(p => {
+    p.baseRate = p.origBaseRate;
+    p.rate = p.baseRate;
+    p.cost = p.cost ?? p.baseCost;
+  });
 
-    // accumulation vars
-    let prodMultiplier = 1;
-    let costReduction = 1;
-    let autobuyEnabled = false;
+  // Variables d'accumulation
+  let prodMultiplier = 1;
+  let costReduction = 1;
+  let autobuyEnabled = false;
 
-    // apply skills
-    skills.forEach(s => {
-      if (!s.purchased) return;
-      switch (s.id) {
-        case "click_plus_1":
-          state.perClick += 1;
-          break;
-        case "prod_plus_5":
-          prodMultiplier *= 1.05;
-          break;
-        case "prod_plus_10":
-          prodMultiplier *= 1.10;
-          break;
-        case "crit_plus_5":
-          state.critChance += 5;
-          break;
-        case "cost_reduc_3":
-          costReduction *= 0.97;
-          break;
-        case "autobuy_basic":
-          autobuyEnabled = true;
-          break;
+  // --- Appliquer les skills ---
+  skills.forEach(s => {
+    if (!s.purchased) return;
+    switch (s.id) {
+      case "click_plus_1":
+        state.perClick += 1; // permanent +1 par clic
+        break;
+      case "prod_plus_5":
+        prodMultiplier *= 1.05;
+        break;
+      case "prod_plus_10":
+        prodMultiplier *= 1.10;
+        break;
+      case "crit_plus_5":
+        state.critChance += 5;
+        break;
+      case "cost_reduc_3":
+        costReduction *= 0.97;
+        break;
+      case "autobuy_basic":
+        autobuyEnabled = true;
+        break;
+    }
+  });
+
+  // --- Appliquer le multiplicateur de production aux producteurs ---
+  producers.forEach(p => {
+    let effectiveRate = p.baseRate * prodMultiplier;
+
+    // Appliquer upgrades run
+    p.upgrades.forEach(u => {
+      if (u.purchased) {
+        const upgradeRate = u.newRate * prodMultiplier;
+        if (upgradeRate > effectiveRate) effectiveRate = upgradeRate;
       }
     });
 
-    // Apply production multiplier and run-time upgrades (p.upgrades.u.purchased)
-    producers.forEach(p => {
-      // base
-      let effectiveRate = p.baseRate * prodMultiplier;
-      // check run upgrades purchased (these are per-run; if p.upgrades[i].purchased true, apply its newRate)
-      p.upgrades.forEach(u => {
-        if (u.purchased && u.newRate * prodMultiplier > effectiveRate) {
-          effectiveRate = u.newRate * prodMultiplier;
-        }
-      });
-      p.rate = effectiveRate;
-    });
+    p.rate = effectiveRate;
+  });
 
-    // apply cost reductions; ensure cost follows scaling pattern before reduction
-    producers.forEach(p => {
-      p.cost = Math.max(p.cost ?? p.baseCost, Math.floor(p.baseCost * Math.pow(1.10, p.count)));
-      p.cost = Math.floor(p.cost * costReduction);
-    });
+  // --- Appliquer réduction de coût ---
+  producers.forEach(p => {
+    p.cost = Math.max(p.cost ?? p.baseCost, Math.floor(p.baseCost * Math.pow(1.10, p.count)));
+    p.cost = Math.floor(p.cost * costReduction);
+  });
 
-    state.autoBuyerEnabled = autobuyEnabled;
-  }
+  state.autoBuyerEnabled = autobuyEnabled;
+}
+
 
   // --- Achievements (persistent) ---
   function checkAndUnlockAchievements() {
@@ -494,85 +497,91 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // --- Render (robust update for #prestige and #crystals) ---
   function render() {
-    // core stats
-    if (els.games) els.games.textContent = Math.floor(state.games);
-    if (els.money) els.money.textContent = Math.floor(state.money);
-    if (els.fans) els.fans.textContent = Math.floor(state.fans);
+  // --- Stats principales ---
+  if (els.games) els.games.textContent = Math.floor(state.games);
+  if (els.money) els.money.textContent = Math.floor(state.money);
+  if (els.fans) els.fans.textContent = Math.floor(state.fans);
 
-    // Update both prestige span and crystals stat if present
-    const prestigeEl = document.getElementById("prestige");
-    if (prestigeEl) prestigeEl.textContent = state.crystals;
-    if (crystalsSpan) crystalsSpan.textContent = state.crystals;
+  // Gain par clic réel avec multiplicateur de prestige
+  if (els.perClick) {
+    const realClick = state.perClick * state.multiplier;
+    els.perClick.textContent = `${realClick.toFixed(2)} (x${state.multiplier.toFixed(2)} prestige)`;
+  }
 
-    if (els.perClick) els.perClick.textContent = `${state.perClick.toFixed(2)} (x${state.multiplier.toFixed(2)} prestige)`;
-    if (els.perSecond) els.perSecond.textContent = `${totalRate().toFixed(2)} (x${state.multiplier.toFixed(2)})`;
+  // Production par seconde réelle
+  if (els.perSecond) {
+    const realRate = totalRate() * state.multiplier;
+    els.perSecond.textContent = `${realRate.toFixed(2)} (x${state.multiplier.toFixed(2)})`;
+  }
 
-    // producteurs
-    producers.forEach(prod => {
-      const li = els.upgrades.querySelector(`li[data-id=${prod.id}]`);
-      if (!li) return;
-      const label = li.querySelector(".label");
-      const buyBtn = li.querySelector(".buy-btn");
-      label.textContent = `${prod.name} — coût : $${Math.floor(prod.cost)} — possédé : ${prod.count} — Prod/unité : ${prod.rate.toFixed(2)}/s`;
-      buyBtn.disabled = state.money < prod.cost;
+  // --- Producteurs ---
+  producers.forEach(prod => {
+    const li = els.upgrades.querySelector(`li[data-id=${prod.id}]`);
+    if (!li) return;
+    const label = li.querySelector(".label");
+    const buyBtn = li.querySelector(".buy-btn");
 
-      const subBtns = li.querySelectorAll(".sub-upgrade-btn");
-      subBtns.forEach((btn, idx) => {
-        const u = prod.upgrades[idx];
-        const prevPurchased = idx === 0 || prod.upgrades[idx - 1].purchased;
-        if (u.purchased) {
-          btn.textContent = `${u.name} acheté`;
-          btn.disabled = true;
-        } else {
-          btn.textContent = `${u.name} (${u.newRate}/s) — ${u.costFans} fans — req: ${u.required}`;
-          btn.disabled = !(state.fans >= u.costFans && prod.count >= u.required && prevPurchased);
-        }
-      });
-    });
+    label.textContent = `${prod.name} — coût : $${Math.floor(prod.cost)} — possédé : ${prod.count} — Prod/unité : ${prod.rate.toFixed(2)}/s`;
+    buyBtn.disabled = state.money < prod.cost;
 
-    // click upgrades
-    const clickBtns = els.clickUpgradesList.querySelectorAll(".click-upgrade-btn");
-    clickBtns.forEach((btn, idx) => {
-      const u = clickUpgrades[idx];
-      const prevPurchased = idx === 0 || clickUpgrades[idx - 1].purchased;
+    const subBtns = li.querySelectorAll(".sub-upgrade-btn");
+    subBtns.forEach((btn, idx) => {
+      const u = prod.upgrades[idx];
+      const prevPurchased = idx === 0 || prod.upgrades[idx - 1].purchased;
+
       if (u.purchased) {
         btn.textContent = `${u.name} acheté`;
         btn.disabled = true;
       } else {
-        btn.textContent = `${u.name} (+${u.extraGain}/clic, +${u.critChanceBonus}% crit) — ${u.requiredClicks} clics`;
-        btn.disabled = !(state.totalClicks >= u.requiredClicks && prevPurchased);
+        btn.textContent = `${u.name} (${(u.newRate * (1 + (prodMultiplier - 1))).toFixed(2)}/s) — ${u.costFans} fans — req: ${u.required}`;
+        btn.disabled = !(state.fans >= u.costFans && prod.count >= u.required && prevPurchased);
       }
     });
+  });
 
-    // achievements display
-    checkAndUnlockAchievements();
-    if (els.achievementsList) {
-      els.achievementsList.innerHTML = "";
-      state.achievements.forEach(a => {
-        const li = document.createElement("li");
-        li.textContent = a;
-        els.achievementsList.appendChild(li);
-      });
+  // --- Click upgrades ---
+  const clickBtns = els.clickUpgradesList.querySelectorAll(".click-upgrade-btn");
+  clickBtns.forEach((btn, idx) => {
+    const u = clickUpgrades[idx];
+    const prevPurchased = idx === 0 || clickUpgrades[idx - 1].purchased;
+
+    if (u.purchased) {
+      btn.textContent = `${u.name} acheté`;
+      btn.disabled = true;
+    } else {
+      btn.textContent = `${u.name} (+${u.extraGain}/clic, +${u.critChanceBonus}% crit) — ${u.requiredClicks} clics`;
+      btn.disabled = !(state.totalClicks >= u.requiredClicks && prevPurchased);
     }
+  });
 
-    // prestige progress
-    const progress = (state.nextPrestige > 0) ? Math.min(1, state.games / state.nextPrestige) : 0;
-    if (progressFill) progressFill.style.width = `${(progress * 100).toFixed(1)}%`;
-    if (progressText) progressText.textContent = `${Math.floor(state.games)} / ${state.nextPrestige} jeux (${(progress * 100).toFixed(1)}%)`;
-
-    // open skills button visible if ever prestiged (crystalsTotal>0) so player can view tree
-    if (openSkillsBtn) {
-      openSkillsBtn.style.display = state.crystalsTotal > 0 ? "inline-block" : "none";
-      openSkillsBtn.disabled = state.crystals <= 0;
-    }
-
-    // prestige availability
-    const canPrest = canGainCrystal();
-    if (els.prestigeBtn) els.prestigeBtn.disabled = !canPrest;
-    if (els.prestigeNote) els.prestigeNote.textContent = canPrest
-      ? `Prestige disponible — clique pour gagner 1 cristal`
-      : `Prestige requis : ${state.nextPrestige} jeux (actuellement ${Math.floor(state.games)})`;
+  // --- Achievements ---
+  checkAndUnlockAchievements();
+  if (els.achievementsList) {
+    els.achievementsList.innerHTML = "";
+    state.achievements.forEach(a => {
+      const li = document.createElement("li");
+      li.textContent = a;
+      els.achievementsList.appendChild(li);
+    });
   }
+
+  // --- Prestige progress ---
+  const progress = state.nextPrestige > 0 ? Math.min(1, state.games / state.nextPrestige) : 0;
+  if (progressFill) progressFill.style.width = `${(progress * 100).toFixed(1)}%`;
+  if (progressText) progressText.textContent = `${Math.floor(state.games)} / ${state.nextPrestige} jeux (${(progress * 100).toFixed(1)}%)`;
+
+  if (openSkillsBtn) {
+    openSkillsBtn.style.display = state.crystalsTotal > 0 ? "inline-block" : "none";
+    openSkillsBtn.disabled = state.crystals <= 0;
+  }
+
+  const canPrest = canGainCrystal();
+  if (els.prestigeBtn) els.prestigeBtn.disabled = !canPrest;
+  if (els.prestigeNote) els.prestigeNote.textContent = canPrest
+    ? `Prestige disponible — clique pour gagner 1 cristal`
+    : `Prestige requis : ${state.nextPrestige} jeux (actuellement ${Math.floor(state.games)})`;
+}
+
 
   // --- Main click ---
   els.makeGame.addEventListener("click", e => {
