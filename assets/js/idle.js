@@ -204,8 +204,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // --- Apply skills (recalculate perClick, rates, costs, crit) ---
   function applySkills() {
-  // --- Reset valeurs de base ---
-  state.perClick = state.perClickBase;
+  // Reset valeur temporaire pour le rendu
+  state.perClick = state.perClickBase; // contient upgrades permanents
   state.critChance = state.critChanceBase;
 
   // Reset producteurs
@@ -215,17 +215,17 @@ document.addEventListener("DOMContentLoaded", () => {
     p.cost = p.cost ?? p.baseCost;
   });
 
-  // Variables d'accumulation
+  // Variables
   let prodMultiplier = 1;
   let costReduction = 1;
   let autobuyEnabled = false;
 
-  // --- Appliquer les skills ---
+  // Appliquer les skills permanents
   skills.forEach(s => {
     if (!s.purchased) return;
     switch (s.id) {
       case "click_plus_1":
-        state.perClick += 1; // permanent +1 par clic
+        state.perClickBase = 1 + 1; // ou +1 si déjà pris (inutile de réaffecter à chaque run)
         break;
       case "prod_plus_5":
         prodMultiplier *= 1.05;
@@ -245,22 +245,22 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // --- Appliquer le multiplicateur de production aux producteurs ---
+  // Appliquer multiplicateur de prestige temporaire
+  state.perClick = state.perClickBase * state.multiplier;
+
+  // Appliquer multiplicateur aux producteurs
   producers.forEach(p => {
     let effectiveRate = p.baseRate * prodMultiplier;
-
-    // Appliquer upgrades run
     p.upgrades.forEach(u => {
       if (u.purchased) {
         const upgradeRate = u.newRate * prodMultiplier;
         if (upgradeRate > effectiveRate) effectiveRate = upgradeRate;
       }
     });
-
     p.rate = effectiveRate;
   });
 
-  // --- Appliquer réduction de coût ---
+  // Appliquer réduction de coût
   producers.forEach(p => {
     p.cost = Math.max(p.cost ?? p.baseCost, Math.floor(p.baseCost * Math.pow(1.10, p.count)));
     p.cost = Math.floor(p.cost * costReduction);
@@ -268,6 +268,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   state.autoBuyerEnabled = autobuyEnabled;
 }
+
 
 
   // --- Achievements (persistent) ---
