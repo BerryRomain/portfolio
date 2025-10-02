@@ -1,6 +1,10 @@
 document.addEventListener("DOMContentLoaded", () => {
   const LS_KEY = "videoGameEmpire_final_v3";
 
+  // expose for console (réinitialisé plus bas après définition state)
+  window.gameState = window.gameState || null;
+  window.renderGame = window.renderGame || null;
+
   // --- État initial ---
   const state = {
     games: 0,
@@ -21,6 +25,9 @@ document.addEventListener("DOMContentLoaded", () => {
     autoBuyLast: 0,      // timestamp pour auto-buyer
     autoBuyerEnabled: false,
   };
+
+  // expose state for console debug
+  window.gameState = state;
 
   // --- Producteurs (avec origBaseRate pour restaurer au reset) ---
   const producers = [
@@ -104,7 +111,6 @@ document.addEventListener("DOMContentLoaded", () => {
   ];
 
   // --- Upgrades de clics (noms visibles) ---
-  // Ces upgrades augmentent PERMANEMMENT perClickBase (elles ne sont pas reset au prestige)
   const clickUpgrades = [
     { name: "Souris améliorée", requiredClicks: 50, extraGain: 1, critChanceBonus: 2, purchased: false },
     { name: "Souris optique", requiredClicks: 200, extraGain: 2, critChanceBonus: 3, purchased: false },
@@ -218,7 +224,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // --- Apply skills (recalculate perClickBase/perClick, rates, costs, crit) ---
   function applySkills() {
     // ---- Ensure perClickBase remains the PERMANENT value (upgrades and skills add to it)
-    // Do NOT overwrite perClickBase here except from explicit permanent upgrades/skills.
     // First set perClick to base (it'll be multiplied by prestige multiplier below)
     state.perClick = state.perClickBase;
     state.critChance = state.critChanceBase;
@@ -240,10 +245,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!s.purchased) return;
       switch (s.id) {
         case "click_plus_1":
-          // this skill is permanent and should affect perClickBase only if not already accounted for
-          // To be safe: ensure perClickBase includes it (only add once)
-          // (we assume initial perClickBase = 1, and buying the skill sets s.purchased true)
-          // We won't force-add here; instead buying the skill will explicitly increase perClickBase.
+          // the permanent effect is applied at purchase time (we don't re-add here)
           break;
         case "prod_plus_5":
           prodMultiplier *= 1.05;
@@ -363,10 +365,8 @@ document.addEventListener("DOMContentLoaded", () => {
         state.achievementsUnlocked = parsed.state.achievementsUnlocked;
       }
 
-      // important: if clickUpgrades were purchased in save we must ensure perClickBase accounts for them
-      // some older saves may have perClickBase stored already; if not, compute from purchased clickUpgrades
+      // if perClickBase wasn't stored in old saves, rebuild it from purchased clickUpgrades
       if (!parsed.state || typeof parsed.state.perClickBase === "undefined") {
-        // rebuild perClickBase from clickUpgrades and base 1
         let base = 1;
         clickUpgrades.forEach(u => { if (u.purchased) base += u.extraGain; });
         state.perClickBase = base;
@@ -628,7 +628,6 @@ document.addEventListener("DOMContentLoaded", () => {
   els.makeGame.addEventListener("click", e => {
     state.totalClicks++;
     // ensure perClick is up-to-date (applySkills sets perClick = perClickBase * multiplier)
-    // but to be safe, recalc here:
     state.perClick = state.perClickBase * state.multiplier;
     let gain = state.perClick;
     if (Math.random() * 100 < state.critChance) gain *= state.critMultiplier;
@@ -644,7 +643,7 @@ document.addEventListener("DOMContentLoaded", () => {
   els.prestigeBtn.addEventListener("click", () => {
     if (!canGainCrystal()) return;
 
-    // grant 1 crystal (you could scale with floor(games/nextPrestige) if desired)
+    // grant 1 crystal
     state.crystals += 1;
     state.crystalsTotal += 1;
 
@@ -667,7 +666,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // NOTE: clickUpgrades are permanent in this design -> do NOT reset clickUpgrades
-    // clickUpgrades.forEach(u => u.purchased = false); // <-- intentionally omitted
 
     // increase nextPrestige strongly (configurable)
     state.nextPrestige = Math.max(5000000, Math.floor(state.nextPrestige * 2.5 + state.crystalsTotal * 500000));
@@ -679,7 +677,7 @@ document.addEventListener("DOMContentLoaded", () => {
     render();
     saveGame();
 
-    // open skill modal so player can spend crystal immediately (but they can also open it later)
+    // open skill modal so player can spend crystal immediately
     rebuildSkillList();
     skillModal.style.display = "block";
   });
@@ -745,10 +743,177 @@ document.addEventListener("DOMContentLoaded", () => {
     requestAnimationFrame(loop);
   }
 
+  // --- Dev menu implementation (Ctrl + D) ---
+  // Build a floating modal with useful dev commands
+  const devModal = document.createElement("div");
+  devModal.id = "devModal";
+  devModal.style.position = "fixed";
+  devModal.style.right = "12px";
+  devModal.style.top = "12px";
+  devModal.style.background = "rgba(20,20,30,0.95)";
+  devModal.style.color = "#fff";
+  devModal.style.padding = "12px";
+  devModal.style.borderRadius = "10px";
+  devModal.style.boxShadow = "0 10px 30px rgba(0,0,0,0.6)";
+  devModal.style.zIndex = 99999;
+  devModal.style.display = "none";
+  devModal.style.minWidth = "260px";
+  devModal.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <strong>Dev Menu</strong>
+      <button id="devCloseBtn" style="background:transparent;border:1px solid rgba(255,255,255,0.06);color:#fff;padding:4px 8px;border-radius:6px">X</button>
+    </div>
+    <div style="display:grid;gap:8px">
+      <div>
+        <label>Give Money $</label><br>
+        <input id="devMoneyAmt" type="number" value="100000" style="width:100%"/>
+        <button id="devGiveMoney">Give Money</button>
+      </div>
+      <div>
+        <label>Give Crystals</label><br>
+        <input id="devCrystalAmt" type="number" value="1" style="width:100%"/>
+        <button id="devGiveCrystal">Give Crystals</button>
+      </div>
+      <div>
+        <label>Set crystalsTotal</label><br>
+        <input id="devCrystalsTotal" type="number" value="${state.crystalsTotal}" style="width:100%"/>
+        <button id="devSetCrystalsTotal">Set & Apply</button>
+      </div>
+      <div>
+        <label>Add Producer (id)</label><br>
+        <input id="devProdId" placeholder="marketing" style="width:100%"/>
+        <input id="devProdCount" type="number" value="1" style="width:100%;margin-top:6px"/>
+        <button id="devAddProducer">Add Producer</button>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button id="devSave">Save</button>
+        <button id="devLoad">Load</button>
+        <button id="devWipe">Wipe Save</button>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button id="devRender">Render</button>
+        <button id="devDump">Console Dump</button>
+      </div>
+      <div style="font-size:12px;color:var(--muted);">Toggle: Ctrl + D</div>
+    </div>
+  `;
+  document.body.appendChild(devModal);
+
+  const devCloseBtn = document.getElementById("devCloseBtn");
+  const devGiveMoneyBtn = document.getElementById("devGiveMoney");
+  const devMoneyAmt = document.getElementById("devMoneyAmt");
+  const devGiveCrystalBtn = document.getElementById("devGiveCrystal");
+  const devCrystalAmt = document.getElementById("devCrystalAmt");
+  const devSetCrystalsTotalBtn = document.getElementById("devSetCrystalsTotal");
+  const devCrystalsTotalInput = document.getElementById("devCrystalsTotal");
+  const devProdIdInput = document.getElementById("devProdId");
+  const devProdCountInput = document.getElementById("devProdCount");
+  const devAddProducerBtn = document.getElementById("devAddProducer");
+  const devSaveBtn = document.getElementById("devSave");
+  const devLoadBtn = document.getElementById("devLoad");
+  const devWipeBtn = document.getElementById("devWipe");
+  const devRenderBtn = document.getElementById("devRender");
+  const devDumpBtn = document.getElementById("devDump");
+
+  function toggleDevModal(show) {
+    devModal.style.display = show ? "block" : "none";
+  }
+
+  // Key handler for Ctrl + D
+  window.addEventListener("keydown", (e) => {
+    if (e.ctrlKey && (e.key === "d" || e.key === "D")) {
+      e.preventDefault(); // intercept default bookmarking
+      toggleDevModal(devModal.style.display !== "block");
+    }
+  });
+
+  devCloseBtn.addEventListener("click", () => toggleDevModal(false));
+  devGiveMoneyBtn.addEventListener("click", () => {
+    const v = Number(devMoneyAmt.value) || 0;
+    state.money += v;
+    render();
+    saveGame();
+  });
+  devGiveCrystalBtn.addEventListener("click", () => {
+    const v = Number(devCrystalAmt.value) || 0;
+    state.crystals += v;
+    state.crystalsTotal += v;
+    // recompute multiplier
+    state.multiplier = 1 + state.crystalsTotal * 0.15;
+    applySkills();
+    render();
+    saveGame();
+  });
+  devSetCrystalsTotalBtn.addEventListener("click", () => {
+    const v = Math.max(0, Math.floor(Number(devCrystalsTotalInput.value) || 0));
+    state.crystalsTotal = v;
+    // keep crystals value aligned (optional)
+    state.crystals = Math.min(state.crystals, state.crystalsTotal);
+    state.multiplier = 1 + state.crystalsTotal * 0.15;
+    applySkills();
+    render();
+    saveGame();
+  });
+  devAddProducerBtn.addEventListener("click", () => {
+    const id = (devProdIdInput.value || "").trim();
+    const count = Math.max(0, Math.floor(Number(devProdCountInput.value) || 0));
+    if (!id) return alert("Entrez un id valide.");
+    const prod = producers.find(p => p.id === id);
+    if (!prod) return alert("Producteur introuvable : " + id);
+    prod.count += count;
+    // adjust cost to a sane value (increase cost exponentionally)
+    prod.cost = Math.floor(prod.baseCost * Math.pow(1.10, prod.count));
+    applySkills();
+    render();
+    saveGame();
+  });
+  devSaveBtn.addEventListener("click", () => {
+    saveGame();
+    alert("Saved");
+  });
+  devLoadBtn.addEventListener("click", () => {
+    loadGame();
+    applySkills();
+    render();
+    alert("Loaded");
+  });
+  devWipeBtn.addEventListener("click", () => {
+    if (!confirm("Wipe save?")) return;
+    localStorage.removeItem(LS_KEY);
+    alert("Save wiped. Reloading.");
+    setTimeout(() => location.reload(), 60);
+  });
+  devRenderBtn.addEventListener("click", () => {
+    applySkills();
+    render();
+    saveGame();
+    alert("Rendered & saved.");
+  });
+  devDumpBtn.addEventListener("click", () => {
+    console.log("GAME STATE DUMP:", state);
+    console.log("PRODUCERS:", producers);
+    console.log("CLICK_UPGRADES:", clickUpgrades);
+    console.log("SKILLS:", skills);
+    alert("Dumped to console.");
+  });
+
+  // expose utility functions to console for quick debug
+  window.giveMoney = (n = 1000000) => { state.money += Number(n); render(); saveGame(); };
+  window.giveCrystals = (n = 1) => { state.crystals += Number(n); state.crystalsTotal += Number(n); state.multiplier = 1 + state.crystalsTotal * 0.15; applySkills(); render(); saveGame(); };
+  window.addProducer = (id, count = 1) => {
+    const p = producers.find(x => x.id === id);
+    if (!p) return console.warn("no producer", id);
+    p.count += count;
+    p.cost = Math.floor(p.baseCost * Math.pow(1.10, p.count));
+    applySkills(); render(); saveGame();
+  };
+  window.resetSave = () => { localStorage.removeItem(LS_KEY); location.reload(); };
+
+  // expose render for console
+  window.renderGame = render;
+
   // --- Init ---
   loadGame();
-  // make sure perClickBase includes any click upgrades loaded (if saved state didn't have it)
-  // (applySkills will set perClick = perClickBase * multiplier)
   applySkills();
   render();
   requestAnimationFrame(loop);
