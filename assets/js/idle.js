@@ -1,5 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
   const LS_KEY = "videoGameEmpire_final_v3";
+  window.gameState = state;
+  window.renderGame = render;
 
   // --- État initial ---
   const state = {
