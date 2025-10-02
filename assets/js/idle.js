@@ -690,47 +690,7 @@ document.addEventListener("DOMContentLoaded", () => {
     requestAnimationFrame(loop);
   }
 
-  // --- Dev Menu ---
-const devMenu = document.createElement("div");
-devMenu.style.position = "fixed";
-devMenu.style.bottom = "10px";
-devMenu.style.right = "10px";
-devMenu.style.background = "rgba(0,0,0,0.8)";
-devMenu.style.padding = "10px";
-devMenu.style.borderRadius = "8px";
-devMenu.style.color = "white";
-devMenu.style.zIndex = "9999";
-devMenu.style.display = "none"; // caché par défaut
-
-devMenu.innerHTML = `
-  <strong>Dev Menu</strong><br>
-  <button id="giveMoney">+1M$</button>
-  <button id="giveFans">+1000 Fans</button>
-  <button id="giveCrystals">+1 Cristal</button>
-  <button id="toggleDevMenu">Fermer</button>
-`;
-document.body.appendChild(devMenu);
-
-const giveMoneyBtn = document.getElementById("giveMoney");
-const giveFansBtn = document.getElementById("giveFans");
-const giveCrystalsBtn = document.getElementById("giveCrystals");
-const toggleDevMenuBtn = document.getElementById("toggleDevMenu");
-
-// fonctions pour donner les ressources
-giveMoneyBtn.addEventListener("click", () => { state.money += 1_000_000; render(); });
-giveFansBtn.addEventListener("click", () => { state.fans += 1_000; render(); });
-giveCrystalsBtn.addEventListener("click", () => { state.crystals += 1; render(); });
-
-// toggle menu
-toggleDevMenuBtn.addEventListener("click", () => { devMenu.style.display = "none"; });
-
-// raccourci clavier pour ouvrir/fermer le dev menu (Ctrl + D)
-document.addEventListener("keydown", (e) => {
-  if (e.ctrlKey && e.key.toLowerCase() === "d") {
-    devMenu.style.display = devMenu.style.display === "none" ? "block" : "none";
-  }
-});
-
+  
   // --- Init ---
   loadGame();
   applySkills();
