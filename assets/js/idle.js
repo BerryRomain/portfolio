@@ -831,6 +831,131 @@ document.addEventListener("DOMContentLoaded", () => {
     saveGame();
     requestAnimationFrame(loop);
   }
+/* ---------- Dev panel (toggle Ctrl+D) ---------- */
+(function installDevPanel(){
+  let devVisible = false;
+  const panelId = "devPanel";
+
+  function createPanel() {
+    if (document.getElementById(panelId)) return;
+    const p = document.createElement("div");
+    p.id = panelId;
+    p.style.position = "fixed";
+    p.style.right = "12px";
+    p.style.top = "12px";
+    p.style.zIndex = "99999";
+    p.style.background = "rgba(0,0,0,0.8)";
+    p.style.color = "#fff";
+    p.style.padding = "10px";
+    p.style.borderRadius = "8px";
+    p.style.minWidth = "220px";
+    p.style.fontSize = "13px";
+    p.style.boxShadow = "0 6px 20px rgba(0,0,0,0.6)";
+
+    p.innerHTML = `
+      <div style="font-weight:700;margin-bottom:8px">DEV PANEL</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <button id="devGiveMoney">+1 000 000 $</button>
+        <button id="devGiveCryst">+1 cristal</button>
+        <button id="devAddAllProd">+1 à chaque producteur</button>
+        <button id="devMaxProds">+10 à chaque producteur</button>
+        <button id="devToggleAuto">Toggle Auto-buy</button>
+        <button id="devResetRun">Reset run (prestige-like)</button>
+        <button id="devExport">Exporter save (console)</button>
+        <button id="devImport">Importer save (invite)</button>
+        <button id="devClose" style="background:#b33;color:#fff">Fermer</button>
+      </div>
+      <div id="devInfo" style="margin-top:8px;font-size:12px;color:#ddd"></div>
+    `;
+    document.body.appendChild(p);
+
+    // assign handlers (use global functions state, render, saveGame if present)
+    p.querySelector("#devGiveMoney").addEventListener("click", () => {
+      state.money = (state.money || 0) + 1_000_000;
+      render(); saveGame();
+    });
+    p.querySelector("#devGiveCryst").addEventListener("click", () => {
+      state.crystals = (state.crystals || 0) + 1;
+      state.crystalsTotal = (state.crystalsTotal || 0); // keep total separate if needed
+      // if you want to increment total as well: state.crystalsTotal++;
+      applySkills(); render(); saveGame();
+    });
+    p.querySelector("#devAddAllProd").addEventListener("click", () => {
+      producers.forEach(pr => { pr.count = (pr.count||0) + 1; pr.cost = Math.floor(pr.baseCost * Math.pow(1.10, pr.count)); });
+      applySkills(); render(); saveGame();
+    });
+    p.querySelector("#devMaxProds").addEventListener("click", () => {
+      producers.forEach(pr => { pr.count = (pr.count||0) + 10; pr.cost = Math.floor(pr.baseCost * Math.pow(1.10, pr.count)); });
+      applySkills(); render(); saveGame();
+    });
+    p.querySelector("#devToggleAuto").addEventListener("click", () => {
+      state.autoBuyerEnabled = !state.autoBuyerEnabled;
+      render(); saveGame();
+    });
+    p.querySelector("#devResetRun").addEventListener("click", () => {
+      // Mimic a run reset without touching crystals/skills:
+      state.games = 0; state.money = 0; state.fans = 0; state.totalClicks = 0;
+      producers.forEach(p => { p.count = 0; p.cost = p.baseCost; p.upgrades.forEach(u => u.purchased = false); });
+      clickUpgrades.forEach(u => u.purchased = false); // run-only
+      applySkills(); render(); saveGame();
+    });
+    p.querySelector("#devExport").addEventListener("click", () => {
+      try {
+        const data = JSON.stringify({ state, producers, clickUpgrades, skills });
+        console.log("SAVE EXPORT:", data);
+        const info = p.querySelector("#devInfo");
+        info.textContent = "Save affiché dans la console (CTRL+SHIFT+J).";
+      } catch(e) { console.warn(e); }
+    });
+    p.querySelector("#devImport").addEventListener("click", () => {
+      const input = prompt("Colle ici le JSON de la sauvegarde à importer :");
+      if (!input) return;
+      try {
+        const parsed = JSON.parse(input);
+        if (parsed.state) {
+          Object.keys(parsed.state).forEach(k => { if (k in state) state[k] = parsed.state[k]; });
+        }
+        if (parsed.producers) {
+          parsed.producers.forEach(saved => {
+            const prod = producers.find(p => p.id === saved.id);
+            if (prod) { prod.count = saved.count || prod.count; prod.cost = saved.cost || prod.cost; prod.upgrades.forEach((u,i)=>{ u.purchased = !!(saved.upgrades?.[i]?.purchased); }); }
+          });
+        }
+        if (parsed.clickUpgrades) parsed.clickUpgrades.forEach((u,i) => { if (clickUpgrades[i]) clickUpgrades[i].purchased = !!u.purchased; });
+        if (parsed.skills) parsed.skills.forEach((s,i) => { if (skills[i]) skills[i].purchased = !!s.purchased; });
+        rebuildPerClickBaseFromPurchases();
+        applySkills(); render(); saveGame();
+        p.querySelector("#devInfo").textContent = "Import réussi.";
+      } catch (err) {
+        p.querySelector("#devInfo").textContent = "Import failed: JSON invalide.";
+        console.warn(err);
+      }
+    });
+    p.querySelector("#devClose").addEventListener("click", toggleDevPanel);
+  }
+
+  function removePanel() {
+    const el = document.getElementById(panelId);
+    if (el) el.remove();
+  }
+
+  function toggleDevPanel() {
+    devVisible = !devVisible;
+    if (devVisible) createPanel();
+    else removePanel();
+  }
+
+  // keystroke listener: Ctrl+D toggles
+  window.addEventListener("keydown", (e) => {
+    // ignore if focus is in input/textarea
+    const tag = (document.activeElement && document.activeElement.tagName) || "";
+    if (tag === "INPUT" || tag === "TEXTAREA") return;
+    if (e.ctrlKey && (e.key === "d" || e.key === "D")) {
+      e.preventDefault();
+      toggleDevPanel();
+    }
+  });
+})();
 
   // --- Init ---
   loadGame();
