@@ -1,5 +1,5 @@
 document.addEventListener("DOMContentLoaded", () => {
-  const LS_KEY = "videoGameEmpire_final_v2";
+  const LS_KEY = "videoGameEmpire_final_v3";
 
   // --- État initial ---
   const state = {
@@ -15,39 +15,92 @@ document.addEventListener("DOMContentLoaded", () => {
     critChanceBase: 5,
     critChance: 5,       // valeur effective (appliquée via skills)
     critMultiplier: 2,
-    achievements: [],
+    achievementsUnlocked: [], // achievements définitivement unlocked (persist until full reset)
+    achievements: [],    // for display building each tick
     nextPrestige: 5000000, // seuil initial (5 000 000)
     autoBuyLast: 0,      // timestamp pour auto-buyer
     autoBuyerEnabled: false,
   };
 
-  // --- Producteurs (avec baseRate pour recalculs sûrs) ---
+  // --- Producteurs (avec origBaseRate pour restaurer au reset) ---
   const producers = [
-    { id: "marketing", name: "Campagne marketing", baseCost: 100, cost: 100, count: 0, baseRate: 1, rate: 1, upgrades: [
-      { name: "Marketing Level 2", required: 10, newRate: 1.5, costFans: 50, purchased: false },
-      { name: "Marketing Level 3", required: 50, newRate: 2, costFans: 200, purchased: false },
-      { name: "Marketing Level 4", required: 100, newRate: 3, costFans: 500, purchased: false },
-    ] },
-    { id: "studio", name: "Meilleur studio", baseCost: 1100, cost: 1100, count: 0, baseRate: 8, rate: 8, upgrades: [
-      { name: "Studio Level 2", required: 10, newRate: 10, costFans: 100, purchased: false },
-      { name: "Studio Level 3", required: 50, newRate: 13, costFans: 400, purchased: false },
-      { name: "Studio Level 4", required: 100, newRate: 16, costFans: 1000, purchased: false },
-    ] },
-    { id: "devTeam", name: "Équipe de dev", baseCost: 12000, cost: 12000, count: 0, baseRate: 47, rate: 47, upgrades: [
-      { name: "Dev Team Level 2", required: 5, newRate: 60, costFans: 500, purchased: false },
-      { name: "Dev Team Level 3", required: 25, newRate: 80, costFans: 1200, purchased: false },
-      { name: "Dev Team Level 4", required: 50, newRate: 100, costFans: 3000, purchased: false },
-    ] },
-    { id: "publisher", name: "Éditeur AAA", baseCost: 130000, cost: 130000, count: 0, baseRate: 260, rate: 260, upgrades: [
-      { name: "Publisher Level 2", required: 2, newRate: 300, costFans: 1000, purchased: false },
-      { name: "Publisher Level 3", required: 5, newRate: 400, costFans: 3000, purchased: false },
-      { name: "Publisher Level 4", required: 10, newRate: 500, costFans: 8000, purchased: false },
-    ] },
-    { id: "franchise", name: "Franchise à succès", baseCost: 1400000, cost: 1400000, count: 0, baseRate: 1400, rate: 1400, upgrades: [
-      { name: "Franchise Level 2", required: 1, newRate: 1600, costFans: 5000, purchased: false },
-      { name: "Franchise Level 3", required: 3, newRate: 2000, costFans: 12000, purchased: false },
-      { name: "Franchise Level 4", required: 5, newRate: 2500, costFans: 30000, purchased: false },
-    ] },
+    {
+      id: "marketing",
+      name: "Campagne marketing",
+      baseCost: 100,
+      cost: 100,
+      count: 0,
+      origBaseRate: 1,
+      baseRate: 1,
+      rate: 1,
+      upgrades: [
+        { name: "Marketing Level 2", required: 5, newRate: 1.5, costFans: 50, purchased: false },
+        { name: "Marketing Level 3", required: 20, newRate: 2, costFans: 200, purchased: false },
+        { name: "Marketing Level 4", required: 50, newRate: 3, costFans: 500, purchased: false },
+      ],
+    },
+    {
+      id: "studio",
+      name: "Meilleur studio",
+      baseCost: 1100,
+      cost: 1100,
+      count: 0,
+      origBaseRate: 8,
+      baseRate: 8,
+      rate: 8,
+      upgrades: [
+        { name: "Studio Level 2", required: 10, newRate: 10, costFans: 100, purchased: false },
+        { name: "Studio Level 3", required: 50, newRate: 13, costFans: 400, purchased: false },
+        { name: "Studio Level 4", required: 100, newRate: 16, costFans: 1000, purchased: false },
+      ],
+    },
+    {
+      id: "devTeam",
+      name: "Équipe de dev",
+      baseCost: 12000,
+      cost: 12000,
+      count: 0,
+      origBaseRate: 47,
+      baseRate: 47,
+      rate: 47,
+      upgrades: [
+        { name: "Dev Team Level 2", required: 5, newRate: 60, costFans: 500, purchased: false },
+        { name: "Dev Team Level 3", required: 25, newRate: 80, costFans: 1200, purchased: false },
+        { name: "Dev Team Level 4", required: 50, newRate: 100, costFans: 3000, purchased: false },
+      ],
+    },
+    {
+      id: "publisher",
+      name: "Éditeur AAA",
+      baseCost: 130000,
+      cost: 130000,
+      count: 0,
+      origBaseRate: 260,
+      baseRate: 260,
+      rate: 260,
+      // paliers ajustés à 5 / 25 / 50
+      upgrades: [
+        { name: "Publisher Level 2", required: 5, newRate: 300, costFans: 1000, purchased: false },
+        { name: "Publisher Level 3", required: 25, newRate: 400, costFans: 3000, purchased: false },
+        { name: "Publisher Level 4", required: 50, newRate: 500, costFans: 8000, purchased: false },
+      ],
+    },
+    {
+      id: "franchise",
+      name: "Franchise à succès",
+      baseCost: 1400000,
+      cost: 1400000,
+      count: 0,
+      origBaseRate: 1400,
+      baseRate: 1400,
+      rate: 1400,
+      // paliers beaucoup plus difficiles
+      upgrades: [
+        { name: "Franchise Level 2", required: 5, newRate: 1600, costFans: 5000, purchased: false }, // keep first low-ish
+        { name: "Franchise Level 3", required: 25, newRate: 2000, costFans: 12000, purchased: false },
+        { name: "Franchise Level 4", required: 75, newRate: 2500, costFans: 30000, purchased: false },
+      ],
+    },
   ];
 
   // --- Upgrades de clics (noms visibles) ---
@@ -81,13 +134,13 @@ document.addEventListener("DOMContentLoaded", () => {
     prestigeNote: $("prestigeNote"),
     upgrades: $("upgrades"),
     clickUpgradesList: $("clickUpgrades"),
-    achievements: $("achievements"),
+    achievementsList: $("achievements"),
     perClick: $("perClick"),
     perSecond: $("perSecond"),
     resetBtn: $("resetBtn"),
   };
 
-  // Ajoute affichage de cristaux à côté de l'argent (si pas déjà présent)
+  // Add crystals stat near the other stats if missing
   function ensureCrystalsStat() {
     const stats = document.querySelector(".stats");
     if (!stats) return;
@@ -101,7 +154,7 @@ document.addEventListener("DOMContentLoaded", () => {
   ensureCrystalsStat();
   const crystalsSpan = document.getElementById("crystals");
 
-  // --- UI: barre de progression & modal compétences ---
+  // --- UI: prestige progress bar & skill modal ---
   const prestigePanel = els.prestigeBtn?.parentElement || document.querySelector(".panel:nth-child(3)");
   const progressWrapper = document.createElement("div");
   progressWrapper.style.marginTop = "10px";
@@ -117,7 +170,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const progressText = document.getElementById("prestigeProgressText");
   const openSkillsBtn = document.getElementById("openSkillsBtn");
 
-  // Modal pour l'arbre de compétences
   const skillModal = document.createElement("div");
   skillModal.id = "skillModal";
   skillModal.style.position = "fixed";
@@ -146,7 +198,6 @@ document.addEventListener("DOMContentLoaded", () => {
     return producers.reduce((sum, p) => sum + p.count * p.rate, 0);
   }
 
-  // prestige condition : here 1 cristal per prestige when games >= nextPrestige
   function canGainCrystal() {
     return state.games >= state.nextPrestige;
   }
@@ -156,15 +207,20 @@ document.addEventListener("DOMContentLoaded", () => {
     // Reset derived values to base
     state.perClick = state.perClickBase;
     state.critChance = state.critChanceBase;
-    // reset producers to baseRate
-    producers.forEach(p => { p.rate = p.baseRate; p.cost = p.cost ?? p.baseCost; });
 
-    // accumulation variables
+    // reset producers to original baseRate & ensure cost consistent
+    producers.forEach(p => {
+      p.baseRate = p.origBaseRate;
+      p.rate = p.baseRate;
+      p.cost = p.cost ?? p.baseCost;
+    });
+
+    // accumulation vars
     let prodMultiplier = 1;
     let costReduction = 1;
     let autobuyEnabled = false;
 
-    // apply purchased skills
+    // apply skills
     skills.forEach(s => {
       if (!s.purchased) return;
       switch (s.id) {
@@ -189,36 +245,56 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
 
-    // apply production multiplier
+    // Apply production multiplier and run-time upgrades (p.upgrades.u.purchased)
     producers.forEach(p => {
-      p.rate = p.baseRate * prodMultiplier;
-      // also apply purchased upgrades that set a stronger base
+      // base
+      let effectiveRate = p.baseRate * prodMultiplier;
+      // check run upgrades purchased (these are per-run; if p.upgrades[i].purchased true, apply its newRate)
       p.upgrades.forEach(u => {
-        if (u.purchased && u.newRate > p.rate) p.rate = u.newRate * prodMultiplier;
+        if (u.purchased && u.newRate * prodMultiplier > effectiveRate) {
+          effectiveRate = u.newRate * prodMultiplier;
+        }
       });
+      p.rate = effectiveRate;
     });
 
-    // apply cost reductions and ensure cost reflects count scaling
+    // apply cost reductions; ensure cost follows scaling pattern before reduction
     producers.forEach(p => {
-      // ensure cost follows scaling pattern
       p.cost = Math.max(p.cost ?? p.baseCost, Math.floor(p.baseCost * Math.pow(1.10, p.count)));
       p.cost = Math.floor(p.cost * costReduction);
     });
 
-    // set auto-buy flag for loop use
     state.autoBuyerEnabled = autobuyEnabled;
   }
 
-  // --- Achievements ---
-  function checkAchievements() {
-    const list = [];
-    if (state.games >= 10) list.push("10 jeux créés");
-    if (state.games >= 100) list.push("100 jeux créés");
-    if (state.money >= 1000) list.push("1k$ accumulés");
-    if (state.fans >= 500) list.push("500 fans");
-    if (totalRate() >= 50) list.push("50 jeux/s");
-    if (state.totalClicks >= 500) list.push("500 clics réalisés");
-    state.achievements = list;
+  // --- Achievements (persistent) ---
+  function checkAndUnlockAchievements() {
+    // list of candidates (id, condition, text)
+    const candidates = [
+      { id: "money_1k", check: () => state.money >= 1_000, text: "1k$ accumulés" },
+      { id: "money_100k", check: () => state.money >= 100_000, text: "100k$ accumulés" },
+      { id: "money_1m", check: () => state.money >= 1_000_000, text: "1M$ accumulés" },
+      { id: "fans_1k", check: () => state.fans >= 1000, text: "1000 fans" },
+      { id: "clicks_100", check: () => state.totalClicks >= 100, text: "100 clics réalisés" },
+      { id: "games_100", check: () => state.games >= 100, text: "100 jeux créés" },
+      { id: "have_10_marketing", check: () => producers.find(p => p.id === "marketing").count >= 10, text: "10 Campagnes marketing" },
+      { id: "have_10_studio", check: () => producers.find(p => p.id === "studio").count >= 10, text: "10 Studios" },
+      { id: "have_25_publisher", check: () => producers.find(p => p.id === "publisher").count >= 25, text: "25 Éditeurs AAA" },
+      { id: "first_prestige", check: () => state.crystalsTotal >= 1, text: "Premier prestige" },
+      // add more as desired...
+    ];
+
+    candidates.forEach(c => {
+      if (c.check() && !state.achievementsUnlocked.includes(c.id)) {
+        state.achievementsUnlocked.push(c.id);
+      }
+    });
+
+    // build display achievements from unlocked ids
+    state.achievements = state.achievementsUnlocked.map(id => {
+      const found = candidates.find(c => c.id === id);
+      return found ? found.text : id;
+    });
   }
 
   // --- Save / Load ---
@@ -229,7 +305,11 @@ document.addEventListener("DOMContentLoaded", () => {
       clickUpgrades,
       skills,
     };
-    localStorage.setItem(LS_KEY, JSON.stringify(payload));
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify(payload));
+    } catch (e) {
+      console.warn("Save failed:", e);
+    }
   }
 
   function loadGame() {
@@ -237,13 +317,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!raw) return;
     try {
       const parsed = JSON.parse(raw);
-      // merge safe
       if (parsed.state) {
         Object.keys(parsed.state).forEach(k => {
           if (k in state) state[k] = parsed.state[k];
         });
       }
-      // producers: restore cost/count/upgrades purchased
       parsed.producers?.forEach(saved => {
         const prod = producers.find(p => p.id === saved.id);
         if (prod) {
@@ -254,11 +332,11 @@ document.addEventListener("DOMContentLoaded", () => {
           });
         }
       });
-      // click upgrades
       parsed.clickUpgrades?.forEach((u, i) => { if (clickUpgrades[i]) clickUpgrades[i].purchased = !!u.purchased; });
-      // skills
       parsed.skills?.forEach((s, i) => { if (skills[i]) skills[i].purchased = !!s.purchased; });
-      // ensure derived values are recalculated
+      if (parsed.state?.achievementsUnlocked) {
+        state.achievementsUnlocked = parsed.state.achievementsUnlocked;
+      }
       applySkills();
     } catch (e) {
       console.warn("Load failed:", e);
@@ -281,8 +359,8 @@ document.addEventListener("DOMContentLoaded", () => {
       if (state.money >= prod.cost) {
         state.money -= prod.cost;
         prod.count++;
-        // progression douce
         prod.cost = Math.floor(prod.cost * 1.10);
+        applySkills();
         render();
         saveGame();
       }
@@ -298,9 +376,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const prevPurchased = idx === 0 || prod.upgrades[idx - 1].purchased;
         if (state.fans >= u.costFans && prod.count >= u.required && prevPurchased && !u.purchased) {
           state.fans -= u.costFans;
-          // set new rate (we will re-apply skills after)
           u.purchased = true;
-          if (u.newRate > prod.baseRate) prod.baseRate = u.newRate;
           applySkills();
           render();
           saveGame();
@@ -313,7 +389,7 @@ document.addEventListener("DOMContentLoaded", () => {
     els.upgrades.appendChild(li);
   });
 
-  // --- UI upgrades de clics init ---
+  // --- UI click upgrades init ---
   clickUpgrades.forEach((u, idx) => {
     const li = document.createElement("li");
     const btn = document.createElement("button");
@@ -321,7 +397,6 @@ document.addEventListener("DOMContentLoaded", () => {
     btn.addEventListener("click", () => {
       const prevPurchased = idx === 0 || clickUpgrades[idx - 1].purchased;
       if (state.totalClicks >= u.requiredClicks && prevPurchased && !u.purchased) {
-        // apply on base values so they persist across skill recalcs
         state.perClickBase += u.extraGain;
         state.critChanceBase += u.critChanceBonus;
         u.purchased = true;
@@ -385,7 +460,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function isSkillAvailable(skill) {
-    // check prerequisites
     const ok = skill.requires.every(rid => {
       const req = skills.find(s => s.id === rid);
       return req && req.purchased;
@@ -393,7 +467,6 @@ document.addEventListener("DOMContentLoaded", () => {
     return ok;
   }
 
-  // open/close modal
   openSkillsBtn?.addEventListener("click", () => {
     rebuildSkillList();
     skillModal.style.display = "block";
@@ -419,19 +492,22 @@ document.addEventListener("DOMContentLoaded", () => {
     setTimeout(() => span.remove(), 1000);
   }
 
-  // --- Render ---
+  // --- Render (robust update for #prestige and #crystals) ---
   function render() {
-    els.games.textContent = Math.floor(state.games);
-    els.money.textContent = Math.floor(state.money);
-    els.fans.textContent = Math.floor(state.fans);
-    // show crystals next to money + in prestige span for compatibility
-    if (els.prestigeSpan) els.prestigeSpan.textContent = state.crystals;
+    // core stats
+    if (els.games) els.games.textContent = Math.floor(state.games);
+    if (els.money) els.money.textContent = Math.floor(state.money);
+    if (els.fans) els.fans.textContent = Math.floor(state.fans);
+
+    // Update both prestige span and crystals stat if present
+    const prestigeEl = document.getElementById("prestige");
+    if (prestigeEl) prestigeEl.textContent = state.crystals;
     if (crystalsSpan) crystalsSpan.textContent = state.crystals;
 
-    els.perClick.textContent = `${state.perClick.toFixed(2)} (x${state.multiplier.toFixed(2)} prestige)`;
-    els.perSecond.textContent = `${totalRate().toFixed(2)} (x${state.multiplier.toFixed(2)})`;
+    if (els.perClick) els.perClick.textContent = `${state.perClick.toFixed(2)} (x${state.multiplier.toFixed(2)} prestige)`;
+    if (els.perSecond) els.perSecond.textContent = `${totalRate().toFixed(2)} (x${state.multiplier.toFixed(2)})`;
 
-    // producteurs: update label, button states, sub-upgrades
+    // producteurs
     producers.forEach(prod => {
       const li = els.upgrades.querySelector(`li[data-id=${prod.id}]`);
       if (!li) return;
@@ -468,27 +544,29 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
 
-    // achievements
-    checkAchievements();
-    els.achievements.innerHTML = "";
-    state.achievements.forEach(a => {
-      const li = document.createElement("li");
-      li.textContent = a;
-      els.achievements.appendChild(li);
-    });
+    // achievements display
+    checkAndUnlockAchievements();
+    if (els.achievementsList) {
+      els.achievementsList.innerHTML = "";
+      state.achievements.forEach(a => {
+        const li = document.createElement("li");
+        li.textContent = a;
+        els.achievementsList.appendChild(li);
+      });
+    }
 
-    // prestige progress bar
+    // prestige progress
     const progress = (state.nextPrestige > 0) ? Math.min(1, state.games / state.nextPrestige) : 0;
     if (progressFill) progressFill.style.width = `${(progress * 100).toFixed(1)}%`;
     if (progressText) progressText.textContent = `${Math.floor(state.games)} / ${state.nextPrestige} jeux (${(progress * 100).toFixed(1)}%)`;
 
-    // show open skills button if player has ever prestiged (crystalsTotal>0)
+    // open skills button visible if ever prestiged (crystalsTotal>0) so player can view tree
     if (openSkillsBtn) {
       openSkillsBtn.style.display = state.crystalsTotal > 0 ? "inline-block" : "none";
       openSkillsBtn.disabled = state.crystals <= 0;
     }
 
-    // prestige btn enabled if we can gain at least one crystal
+    // prestige availability
     const canPrest = canGainCrystal();
     if (els.prestigeBtn) els.prestigeBtn.disabled = !canPrest;
     if (els.prestigeNote) els.prestigeNote.textContent = canPrest
@@ -509,52 +587,62 @@ document.addEventListener("DOMContentLoaded", () => {
     saveGame();
   });
 
-  // --- Prestige: 1 cristal per prestige, strong growth of threshold ---
+  // --- Prestige: 1 cristal per prestige, threshold growth; resets run upgrades ---
   els.prestigeBtn.addEventListener("click", () => {
     if (!canGainCrystal()) return;
-    // award 1 crystal
     state.crystals += 1;
     state.crystalsTotal += 1;
     // modest permanent multiplier per crystal
-    state.multiplier = 1 + state.crystalsTotal * 0.15; // each crystal = +15% global
-    // Reset progression except crystals and skills purchases
+    state.multiplier = 1 + state.crystalsTotal * 0.15;
+
+    // Reset run progress, but persist skills & crystals & achievementsUnlocked
     state.games = 0;
     state.money = 0;
     state.fans = 0;
     state.totalClicks = 0;
+
+    // reset producers counts/costs and reset run-upgrades purchased flag
     producers.forEach(p => {
       p.count = 0;
       p.cost = p.baseCost;
+      p.baseRate = p.origBaseRate;
+      p.rate = p.baseRate;
       p.upgrades.forEach(u => u.purchased = false);
     });
+
+    // reset click-upgrades purchased (they are run-upgrades)
     clickUpgrades.forEach(u => u.purchased = false);
-    // increase nextPrestige strongly
+
+    // increase nextPrestige strongly (configurable)
     state.nextPrestige = Math.max(5000000, Math.floor(state.nextPrestige * 2.5 + state.crystalsTotal * 500000));
-    // apply permanent skills
+
+    // re-apply permanent skills (they remain purchased across prestiges)
     applySkills();
 
+    // Important: immediately update display for both prestige and crystals
     render();
     saveGame();
 
-    // open modal so user can spend crystal immediately (but they can also view later)
+    // open skill modal so player can spend crystal immediately (but they can also open it later)
     rebuildSkillList();
     skillModal.style.display = "block";
   });
 
-  // --- Reset complet (wipe) ---
+  // --- Full reset (wipe everything) ---
   els.resetBtn?.addEventListener("click", () => {
     if (!confirm("Reset complet : tout sera perdu (y compris les cristaux).")) return;
     localStorage.removeItem(LS_KEY);
     Object.assign(state, {
       games: 0, fans: 0, money: 0, crystals: 0, crystalsTotal: 0,
       multiplier: 1, perClickBase: 1, perClick: 1, totalClicks: 0,
-      critChanceBase: 5, critChance: 5, critMultiplier: 2, achievements: [],
+      critChanceBase: 5, critChance: 5, critMultiplier: 2, achievementsUnlocked: [], achievements: [],
       nextPrestige: 5000000, autoBuyLast: 0, autoBuyerEnabled: false
     });
     producers.forEach(p => {
       p.count = 0;
       p.cost = p.baseCost;
       p.upgrades.forEach(u => u.purchased = false);
+      p.baseRate = p.origBaseRate;
       p.rate = p.baseRate;
     });
     clickUpgrades.forEach(u => u.purchased = false);
@@ -564,13 +652,12 @@ document.addEventListener("DOMContentLoaded", () => {
     setTimeout(() => location.reload(), 80);
   });
 
-  // --- Auto-buy logic (if unlocked via skill) ---
+  // --- Auto-buy logic (unlocked via skill) ---
   function tryAutoBuy() {
     if (!state.autoBuyerEnabled) return;
     const now = Date.now();
     if (!state.autoBuyLast) state.autoBuyLast = 0;
     if (now - state.autoBuyLast < 30000) return; // 30s cooldown
-    // find cheapest producer affordable
     const affordable = producers.filter(p => state.money >= p.cost);
     if (affordable.length === 0) {
       state.autoBuyLast = now;
@@ -586,24 +673,22 @@ document.addEventListener("DOMContentLoaded", () => {
     render();
   }
 
-  // --- Loop (main tick) ---
+  // --- Loop ---
   let last = performance.now();
   function loop(now) {
     const delta = (now - last) / 1000;
     last = now;
-    // passive gain
     const gain = totalRate() * state.multiplier * delta;
     state.games += gain;
     state.money += gain;
     state.fans += gain / 10;
-    // try auto-buy occasionally
     tryAutoBuy();
     render();
     saveGame();
     requestAnimationFrame(loop);
   }
 
-  // --- Init/load ---
+  // --- Init ---
   loadGame();
   applySkills();
   render();
