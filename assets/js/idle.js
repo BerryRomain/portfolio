@@ -8,21 +8,26 @@ document.addEventListener("DOMContentLoaded", () => {
     money: 0,
     crystals: 0,         // cristaux disponibles (à dépenser)
     crystalsTotal: 0,    // cristaux cumulés (nombre de fois qu'on a prestige)
-    multiplier: 1,       // utilisé pour la production passive (inchangé ici)
-    perClickBase: 1,     // base permanente (appliquée via click skills)
+    multiplier: 1,
+    perClickBase: 1,     // base permanente (1)
     perClick: 1,         // valeur effective (recalculée via applySkills)
     clickRunExtra: 0,    // run-only click extras sum (from clickUpgrades)
     totalClicks: 0,
     critChanceBase: 5,
     critChance: 5,       // valeur effective (appliquée via skills)
     critMultiplier: 2,
-    achievementsUnlocked: [], // achievements pour le run (reset à chaque prestige)
-    achievements: [],    // liste affichable (rebuild depuis achievementsUnlocked)
+    achievementsUnlocked: [], // achievements définitivement unlocked (persist until full reset) -> NOTE: will be reset on prestige by request
+    achievements: [],    // for display building each tick
     nextPrestige: 5000000, // seuil initial (5 000 000)
-    autoBuyLast: 0,
+    autoBuyLast: 0,      // timestamp pour auto-buyer
     autoBuyerEnabled: false,
-    // golden removed
+
+    // prestige permanent upgrades removed (we removed boutique per request)
+    // golden event removed
   };
+
+  // expose for debug
+  window.gameState = state;
 
   // --- Producteurs (avec origBaseRate pour restaurer au reset) ---
   const producers = [
@@ -103,7 +108,7 @@ document.addEventListener("DOMContentLoaded", () => {
     },
   ];
 
-  // --- Upgrades de clics (noms visibles) ---
+  // --- Upgrades de clics (run-only) ---
   const clickUpgrades = [
     { name: "Souris améliorée", requiredClicks: 50, extraGain: 1, critChanceBonus: 2, purchased: false },
     { name: "Souris optique", requiredClicks: 200, extraGain: 2, critChanceBonus: 3, purchased: false },
@@ -112,7 +117,7 @@ document.addEventListener("DOMContentLoaded", () => {
     { name: "Gants VR", requiredClicks: 2000, extraGain: 15, critChanceBonus: 15, purchased: false },
   ];
 
-  // --- Arbre de compétences (cristaux) ---
+  // --- Arbre de compétences (cristaux) (permanent) ---
   const skills = [
     { id: "click_plus_1", name: "Clic +1", cost: 1, desc: "+1 par clic (permanent)", requires: [], purchased: false },
     { id: "prod_plus_5", name: "+5% production", cost: 1, desc: "+5% production passive", requires: [], purchased: false },
@@ -128,18 +133,19 @@ document.addEventListener("DOMContentLoaded", () => {
     games: $("games"),
     fans: $("fans"),
     money: $("money"),
+    prestigeSpan: $("prestige"),
     makeGame: $("makeGame"),
     prestigeBtn: $("prestigeBtn"),
     prestigeNote: $("prestigeNote"),
     upgrades: $("upgrades"),
     clickUpgradesList: $("clickUpgrades"),
-    // achievementsList removed from inline usage; we'll create a modal
+    achievementsBtn: $("achievements"), // will be transformed into a button that opens the achievements modal
     perClick: $("perClick"),
     perSecond: $("perSecond"),
     resetBtn: $("resetBtn"),
   };
 
-  // Add crystals stat near the other stats if missing (we show ONLY this)
+  // Add crystals stat near the other stats if missing (we will show only "Cristaux : X")
   function ensureCrystalsStat() {
     const stats = document.querySelector(".stats");
     if (!stats) return;
@@ -153,8 +159,8 @@ document.addEventListener("DOMContentLoaded", () => {
   ensureCrystalsStat();
   const crystalsSpan = document.getElementById("crystals");
 
-  // --- UI: prestige progress bar & skill modal & achievements modal (shop removed) ---
-  const prestigePanel = (document.querySelector(".panel:nth-child(3)")) || null;
+  // --- UI: prestige progress bar & skill modal & achievements modal ---
+  const prestigePanel = els.prestigeBtn?.parentElement || document.querySelector(".panel:nth-child(3)");
   const progressWrapper = document.createElement("div");
   progressWrapper.style.marginTop = "10px";
   progressWrapper.innerHTML = `
@@ -171,6 +177,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const openSkillsBtn = document.getElementById("openSkillsBtn");
   const openAchievementsBtn = document.getElementById("openAchievementsBtn");
 
+  // skill modal
   const skillModal = document.createElement("div");
   skillModal.id = "skillModal";
   skillModal.style.position = "fixed";
@@ -185,7 +192,7 @@ document.addEventListener("DOMContentLoaded", () => {
   skillModal.style.display = "none";
   skillModal.style.minWidth = "360px";
   skillModal.innerHTML = `<h3 style="margin-top:0;color:var(--accent)">Arbre des cristaux</h3>
-    <div id="skillList" style="display:grid;gap:8px; max-height:380px; overflow:auto;"></div>
+    <div id="skillList" style="display:grid;gap:8px;"></div>
     <div style="margin-top:12px; display:flex; gap:8px; justify-content:flex-end;">
       <button id="closeSkillModal">Fermer</button>
     </div>
@@ -194,39 +201,39 @@ document.addEventListener("DOMContentLoaded", () => {
   const skillList = document.getElementById("skillList");
   const closeSkillModal = document.getElementById("closeSkillModal");
 
-  // Achievements modal
-  const achModal = document.createElement("div");
-  achModal.id = "achModal";
-  achModal.style.position = "fixed";
-  achModal.style.left = "50%";
-  achModal.style.top = "50%";
-  achModal.style.transform = "translate(-50%,-50%)";
-  achModal.style.background = "var(--card)";
-  achModal.style.padding = "18px";
-  achModal.style.borderRadius = "10px";
-  achModal.style.boxShadow = "0 10px 30px rgba(0,0,0,0.6)";
-  achModal.style.zIndex = "9999";
-  achModal.style.display = "none";
-  achModal.style.minWidth = "420px";
-  achModal.innerHTML = `<h3 style="margin-top:0;color:var(--accent)">Succès</h3>
-    <div id="achLists" style="display:grid;grid-template-columns:1fr 1fr;gap:12px; max-height:380px; overflow:auto;">
-      <div>
-        <h4>Débloqués</h4>
-        <ul id="achUnlocked" style="min-height:40px"></ul>
+  // achievements modal (new: replaces the old achievements panel)
+  const achievementsModal = document.createElement("div");
+  achievementsModal.id = "achievementsModal";
+  achievementsModal.style.position = "fixed";
+  achievementsModal.style.left = "50%";
+  achievementsModal.style.top = "50%";
+  achievementsModal.style.transform = "translate(-50%,-50%)";
+  achievementsModal.style.background = "var(--card)";
+  achievementsModal.style.padding = "18px";
+  achievementsModal.style.borderRadius = "10px";
+  achievementsModal.style.boxShadow = "0 10px 30px rgba(0,0,0,0.6)";
+  achievementsModal.style.zIndex = "9999";
+  achievementsModal.style.display = "none";
+  achievementsModal.style.minWidth = "420px";
+  achievementsModal.innerHTML = `<h3 style="margin-top:0;color:var(--accent)">Succès</h3>
+    <div style="display:flex;gap:12px;">
+      <div style="flex:1">
+        <h4 style="margin:6px 0">Débloqués</h4>
+        <ul id="achUnlockedList" style="max-height:280px;overflow:auto;padding-left:16px;"></ul>
       </div>
-      <div>
-        <h4>À faire</h4>
-        <ul id="achLocked" style="min-height:40px"></ul>
+      <div style="flex:1">
+        <h4 style="margin:6px 0">À obtenir</h4>
+        <ul id="achPendingList" style="max-height:280px;overflow:auto;padding-left:16px;"></ul>
       </div>
     </div>
     <div style="margin-top:12px; display:flex; gap:8px; justify-content:flex-end;">
-      <button id="closeAchModal">Fermer</button>
+      <button id="closeAchievementsModal">Fermer</button>
     </div>
   `;
-  document.body.appendChild(achModal);
-  const achUnlocked = document.getElementById("achUnlocked");
-  const achLocked = document.getElementById("achLocked");
-  const closeAchModal = document.getElementById("closeAchModal");
+  document.body.appendChild(achievementsModal);
+  const achUnlockedList = document.getElementById("achUnlockedList");
+  const achPendingList = document.getElementById("achPendingList");
+  const closeAchievementsModal = document.getElementById("closeAchievementsModal");
 
   // --- Calculs auxiliaires ---
   function totalRate() {
@@ -235,13 +242,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function computeProdMultiplierFromSkills() {
     let prodMultiplier = 1;
-    skills.forEach(s => {
-      if (!s.purchased) return;
-      if (s.id === "prod_plus_5") prodMultiplier *= 1.05;
-      if (s.id === "prod_plus_10") prodMultiplier *= 1.10;
-    });
-    // keep crystalsTotal effect on production (unchanged): multiplier = 1 + crystalsTotal * 0.15
-    prodMultiplier *= (1 + (state.crystalsTotal || 0) * 0.15);
+    if (skills.find(s => s.id === "prod_plus_5" && s.purchased)) prodMultiplier *= 1.05;
+    if (skills.find(s => s.id === "prod_plus_10" && s.purchased)) prodMultiplier *= 1.10;
     return prodMultiplier;
   }
 
@@ -255,24 +257,26 @@ document.addEventListener("DOMContentLoaded", () => {
     return state.games >= state.nextPrestige;
   }
 
-  // --- Rebuild perClickBase from purchased skills only (permanent) ---
-  function rebuildPerClickBaseFromSkills() {
-    let base = 1;
-    const sk = skills.find(s => s.id === "click_plus_1");
-    if (sk && sk.purchased) base += 1;
-    state.perClickBase = base;
+  // --- Rebuild permanent click from skills only ---
+  function rebuildPermanentClickFromSkills() {
+    // Base permanent is 1, skills that add to click (click_plus_1) add afterwards (we follow requested formula)
+    let permSkillAdd = 0;
+    if (skills.find(s => s.id === "click_plus_1" && s.purchased)) permSkillAdd += 1;
+    state.perClickBase = 1; // base always 1
+    // We'll store permanent addition separately (so perClick formula can be base * prestigeMult + permSkillAdd + runExtra)
+    state.permClickSkillAdd = permSkillAdd;
   }
 
   // --- Apply skills (recalculate perClick, rates, costs, crit) ---
   function applySkills() {
-    // Rebuild permanent base
-    rebuildPerClickBaseFromSkills();
+    // rebuild permanent click pieces
+    rebuildPermanentClickFromSkills();
 
     // crit
     state.critChance = state.critChanceBase;
     if (skills.find(s => s.id === "crit_plus_5" && s.purchased)) state.critChance += 5;
 
-    // producers: compute multiplier from skills + crystalsTotal production bonus
+    // producers: compute multiplier from skills
     const prodMultiplier = computeProdMultiplierFromSkills();
 
     producers.forEach(p => {
@@ -301,68 +305,46 @@ document.addEventListener("DOMContentLoaded", () => {
     clickUpgrades.forEach(u => { if (u.purchased) runClickExtra += u.extraGain; });
     state.clickRunExtra = runClickExtra;
 
-    // CLICK calculation:
-    // per-user request earlier: "clic de base (1) * 1.25 (augmente par nombre de prestige) + upgrade skill tree"
-    // Implementing: perClick = (perClickBase + run extras) * (1.25 ^ crystalsTotal)
-    // (Production still uses multiplier = 1 + crystalsTotal * 0.15)
-    const perClickPrestigeMult = Math.pow(1.25, state.crystalsTotal || 0);
-    state.perClick = (state.perClickBase + state.clickRunExtra) * perClickPrestigeMult;
+    // --- CLICK formula requested by you:
+    // perClick = (base * prestigeMultiplier) + permanent_skill_additions + run_extras
+    // prestigeMultiplier = 1.25 ^ crystalsTotal
+    const prestigeMult = Math.pow(1.25, (state.crystalsTotal || 0));
+    state.perClick = (state.perClickBase * prestigeMult) + (state.permClickSkillAdd || 0) + state.clickRunExtra;
   }
 
-  // --- Achievements definitions (used both for checking & modal listing) ---
-  const ACH_CANDIDATES = [
-    { id: "money_1k", check: () => state.money >= 1_000, text: "1k$ accumulés" },
-    { id: "money_100k", check: () => state.money >= 100_000, text: "100k$ accumulés" },
-    { id: "money_1m", check: () => state.money >= 1_000_000, text: "1M$ accumulés" },
-    { id: "fans_1k", check: () => state.fans >= 1000, text: "1000 fans" },
-    { id: "clicks_100", check: () => state.totalClicks >= 100, text: "100 clics réalisés" },
-    { id: "games_100", check: () => state.games >= 100, text: "100 jeux créés" },
-    { id: "have_10_marketing", check: () => producers.find(p => p.id === "marketing").count >= 10, text: "10 Campagnes marketing" },
-    { id: "have_10_studio", check: () => producers.find(p => p.id === "studio").count >= 10, text: "10 Studios" },
-    { id: "have_25_publisher", check: () => producers.find(p => p.id === "publisher").count >= 25, text: "25 Éditeurs AAA" },
-  ];
+  // --- Achievements (definition) ---
+  function buildAchievementCandidates() {
+    // We need the full list to display unlocked / pending
+    return [
+      { id: "money_1k", check: () => state.money >= 1_000, text: "1k$ accumulés" },
+      { id: "money_100k", check: () => state.money >= 100_000, text: "100k$ accumulés" },
+      { id: "money_1m", check: () => state.money >= 1_000_000, text: "1M$ accumulés" },
+      { id: "fans_1k", check: () => state.fans >= 1000, text: "1000 fans" },
+      { id: "clicks_100", check: () => state.totalClicks >= 100, text: "100 clics réalisés" },
+      { id: "games_100", check: () => state.games >= 100, text: "100 jeux créés" },
+      { id: "have_10_marketing", check: () => producers.find(p => p.id === "marketing").count >= 10, text: "10 Campagnes marketing" },
+      { id: "have_10_studio", check: () => producers.find(p => p.id === "studio").count >= 10, text: "10 Studios" },
+      { id: "have_25_publisher", check: () => producers.find(p => p.id === "publisher").count >= 25, text: "25 Éditeurs AAA" },
+      { id: "first_prestige", check: () => state.crystalsTotal >= 1, text: "Premier prestige" },
+    ];
+  }
 
-  // --- Achievements: check & unlock (reset on prestige as requested) ---
   function checkAndUnlockAchievements() {
-    ACH_CANDIDATES.forEach(c => {
-      try {
-        if (c.check() && !state.achievementsUnlocked.includes(c.id)) {
-          state.achievementsUnlocked.push(c.id);
-        }
-      } catch (e) {
-        // guard against candidate check errors
-        console.warn("Achievement check error:", e);
+    const candidates = buildAchievementCandidates();
+    candidates.forEach(c => {
+      if (c.check() && !state.achievementsUnlocked.includes(c.id)) {
+        state.achievementsUnlocked.push(c.id);
       }
     });
-
     state.achievements = state.achievementsUnlocked.map(id => {
-      const found = ACH_CANDIDATES.find(c => c.id === id);
+      const found = candidates.find(c => c.id === id);
       return found ? found.text : id;
     });
   }
 
-  // --- Rebuild achievements modal content ---
-  function rebuildAchievementsModal() {
-    if (!achUnlocked || !achLocked) return;
-    achUnlocked.innerHTML = "";
-    achLocked.innerHTML = "";
-
-    const unlockedSet = new Set(state.achievementsUnlocked);
-    ACH_CANDIDATES.forEach(c => {
-      const li = document.createElement("li");
-      li.textContent = c.text;
-      if (unlockedSet.has(c.id)) {
-        achUnlocked.appendChild(li);
-      } else {
-        // locked: show faded
-        li.style.opacity = "0.45";
-        achLocked.appendChild(li);
-      }
-    });
-  }
-
-  // --- Save / Load (no shop state) ---
+  // --- Save / Load ---
   function saveGame() {
+    // Save canonical minimal state to avoid storing derived fields
     const payload = {
       state: {
         games: state.games,
@@ -370,15 +352,11 @@ document.addEventListener("DOMContentLoaded", () => {
         money: state.money,
         crystals: state.crystals,
         crystalsTotal: state.crystalsTotal,
-        multiplier: state.multiplier,
-        perClickBase: state.perClickBase,
-        totalClicks: state.totalClicks,
-        critChanceBase: state.critChanceBase,
-        critMultiplier: state.critMultiplier,
         achievementsUnlocked: state.achievementsUnlocked,
         nextPrestige: state.nextPrestige,
         autoBuyLast: state.autoBuyLast,
         autoBuyerEnabled: state.autoBuyerEnabled,
+        totalClicks: state.totalClicks,
       },
       producers,
       clickUpgrades,
@@ -398,9 +376,18 @@ document.addEventListener("DOMContentLoaded", () => {
       const parsed = JSON.parse(raw);
 
       if (parsed.state) {
-        Object.keys(parsed.state).forEach(k => {
-          if (k in state) state[k] = parsed.state[k];
-        });
+        const s = parsed.state;
+        // copy only allowed keys
+        if (typeof s.games === "number") state.games = s.games;
+        if (typeof s.fans === "number") state.fans = s.fans;
+        if (typeof s.money === "number") state.money = s.money;
+        if (typeof s.crystals === "number") state.crystals = s.crystals;
+        if (typeof s.crystalsTotal === "number") state.crystalsTotal = s.crystalsTotal;
+        if (Array.isArray(s.achievementsUnlocked)) state.achievementsUnlocked = s.achievementsUnlocked;
+        if (typeof s.nextPrestige === "number") state.nextPrestige = s.nextPrestige;
+        if (typeof s.autoBuyLast === "number") state.autoBuyLast = s.autoBuyLast;
+        if (typeof s.autoBuyerEnabled === "boolean") state.autoBuyerEnabled = s.autoBuyerEnabled;
+        if (typeof s.totalClicks === "number") state.totalClicks = s.totalClicks;
       }
 
       parsed.producers?.forEach(saved => {
@@ -418,11 +405,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       parsed.skills?.forEach((s, i) => { if (skills[i]) skills[i].purchased = !!s.purchased; });
 
-      if (parsed.state?.achievementsUnlocked) {
-        state.achievementsUnlocked = parsed.state.achievementsUnlocked || [];
-      }
-
-      // ensure production multiplier corresponds to crystalsTotal on load
+      // ensure multiplier corresponds to crystalsTotal on load
       state.multiplier = 1 + (state.crystalsTotal || 0) * 0.15;
 
       applySkills();
@@ -477,7 +460,7 @@ document.addEventListener("DOMContentLoaded", () => {
     els.upgrades.appendChild(li);
   });
 
-  // --- UI click upgrades init ---
+  // --- UI click upgrades init (run-only) ---
   clickUpgrades.forEach((u, idx) => {
     const li = document.createElement("li");
     const btn = document.createElement("button");
@@ -560,12 +543,26 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   closeSkillModal.addEventListener("click", () => skillModal.style.display = "none");
 
-  // Achievements modal handlers
+  // --- achievements modal population ---
+  function rebuildAchievementsModal() {
+    const candidates = buildAchievementCandidates();
+    // unlocked
+    achUnlockedList.innerHTML = "";
+    achPendingList.innerHTML = "";
+    const unlockedIds = new Set(state.achievementsUnlocked || []);
+    candidates.forEach(c => {
+      const li = document.createElement("li");
+      li.textContent = c.text;
+      if (unlockedIds.has(c.id)) achUnlockedList.appendChild(li);
+      else achPendingList.appendChild(li);
+    });
+  }
+
   openAchievementsBtn?.addEventListener("click", () => {
     rebuildAchievementsModal();
-    achModal.style.display = "block";
+    achievementsModal.style.display = "block";
   });
-  closeAchModal.addEventListener("click", () => achModal.style.display = "none");
+  closeAchievementsModal.addEventListener("click", () => achievementsModal.style.display = "none");
 
   // --- Floating text ---
   function showFloatingText(text, x, y) {
@@ -586,25 +583,28 @@ document.addEventListener("DOMContentLoaded", () => {
     setTimeout(() => span.remove(), 1000);
   }
 
-  // --- Render (robust update for #crystals) ---
+  // --- Render (robust update for #crystals and perClick display) ---
   function render() {
+    // core stats
     if (els.games) els.games.textContent = Math.floor(state.games);
     if (els.money) els.money.textContent = Math.floor(state.money);
     if (els.fans) els.fans.textContent = Math.floor(state.fans);
 
-    // Show ONLY crystals
+    // Show only "Cristaux : X" as requested (remove redundant prestige line)
     if (crystalsSpan) crystalsSpan.textContent = state.crystals;
 
-    // Ensure perClick display
-    if (els.perClick) els.perClick.textContent = `${state.perClick.toFixed(2)} (prestiges: ${state.crystalsTotal})`;
-
-    // perSecond using production multiplier already computed by applySkills via producers.rate
-    if (els.perSecond) {
-      // compute production multiplier shown for clarity
-      const prodPerSec = totalRate();
-      const prodMultiplierShown = (1 + (state.crystalsTotal || 0) * 0.15);
-      els.perSecond.textContent = `${(prodPerSec).toFixed(2)} (prod mult x${prodMultiplierShown.toFixed(2)})`;
+    // Show perClick with clear, older-style annotation
+    // We'll display like: "Gain par clic : X (base Y × prest Z + skills A + run B)"
+    const prestigeMult = Math.pow(1.25, (state.crystalsTotal || 0));
+    const basePart = (state.perClickBase * prestigeMult).toFixed(2);
+    const skillsPart = (state.permClickSkillAdd || 0).toFixed(2);
+    const runPart = (state.clickRunExtra || 0).toFixed(2);
+    if (els.perClick) {
+      els.perClick.textContent = `Gain par clic : ${state.perClick.toFixed(2)} (base ${basePart} + skills ${skillsPart} + run ${runPart})`;
     }
+
+    // perSecond: show totalRate * multiplier
+    if (els.perSecond) els.perSecond.textContent = `${(totalRate() * state.multiplier).toFixed(2)} (x${state.multiplier.toFixed(2)})`;
 
     // producers
     const displayProdMultiplier = computeProdMultiplierFromSkills();
@@ -645,18 +645,23 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
 
-    // achievements display updated in modal only
+    // achievements display (we now use modal; keep state updated)
     checkAndUnlockAchievements();
 
-    // progress bar
+    // prestige progress
     const progress = (state.nextPrestige > 0) ? Math.min(1, state.games / state.nextPrestige) : 0;
     if (progressFill) progressFill.style.width = `${(progress * 100).toFixed(1)}%`;
     if (progressText) progressText.textContent = `${Math.floor(state.games)} / ${state.nextPrestige} jeux (${(progress * 100).toFixed(1)}%)`;
 
-    // open skills button visible if ever prestiged (crystalsTotal>0)
+    // open skills button visible if ever prestiged (crystalsTotal>0) so player can view tree
     if (openSkillsBtn) {
       openSkillsBtn.style.display = state.crystalsTotal > 0 ? "inline-block" : "none";
       openSkillsBtn.disabled = state.crystals <= 0;
+    }
+
+    // achievements button always visible (we created it)
+    if (openAchievementsBtn) {
+      openAchievementsBtn.style.display = "inline-block";
     }
 
     // prestige availability
@@ -682,7 +687,7 @@ document.addEventListener("DOMContentLoaded", () => {
     saveGame();
   });
 
-  // --- Prestige: 1 cristal per prestige, threshold growth; resets run upgrades ---
+  // --- Prestige: 1 cristal per prestige, threshold growth; resets run upgrades & achievements as requested ---
   els.prestigeBtn.addEventListener("click", () => {
     if (!canGainCrystal()) return;
 
@@ -690,10 +695,10 @@ document.addEventListener("DOMContentLoaded", () => {
     state.crystals += 1;
     state.crystalsTotal += 1;
 
-    // update production multiplier (we keep old behavior for production)
+    // update permanent multiplier derived from crystalsTotal (still used for producers display etc.)
     state.multiplier = 1 + state.crystalsTotal * 0.15;
 
-    // Reset run progress, persist ONLY skills & crystals & crystalsTotal
+    // Reset run progress, persist ONLY skills & crystals & prestigeTotal (and reset achievements per request)
     state.games = 0;
     state.money = 0;
     state.fans = 0;
@@ -711,17 +716,18 @@ document.addEventListener("DOMContentLoaded", () => {
     // reset clickUpgrades (they are NOT permanent now)
     clickUpgrades.forEach(u => u.purchased = false);
 
-    // reset achievements on prestige (as requested)
+    // Reset achievements as requested
     state.achievementsUnlocked = [];
     state.achievements = [];
 
-    // increase nextPrestige
+    // increase nextPrestige strongly (configurable)
     state.nextPrestige = Math.max(5000000, Math.floor(state.nextPrestige * 2.5 + state.crystalsTotal * 500000));
 
-    // rebuild perClick base from skills, apply skills
-    rebuildPerClickBaseFromSkills();
+    // rebuild permanent perClickBase from skills (skills persist), and apply skills
+    rebuildPermanentClickFromSkills();
     applySkills();
 
+    // update UI & save
     render();
     saveGame();
 
@@ -781,13 +787,15 @@ document.addEventListener("DOMContentLoaded", () => {
     const delta = (now - last) / 1000;
     last = now;
 
-    // production tick (no golden)
+    // production gain (no golden events anymore)
     const gain = totalRate() * state.multiplier * delta;
     state.games += gain;
     state.money += gain;
     state.fans += gain / 10;
 
     tryAutoBuy();
+
+    // keep derived fields up to date
     applySkills();
     render();
     saveGame();
@@ -838,7 +846,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
       p.querySelector("#devGiveCryst").addEventListener("click", () => {
         state.crystals = (state.crystals || 0) + 1;
-        state.crystalsTotal = (state.crystalsTotal || 0);
+        // do not increment crystalsTotal here by default; dev can modify if needed via console
         applySkills(); render(); saveGame();
       });
       p.querySelector("#devAddAllProd").addEventListener("click", () => {
@@ -854,10 +862,10 @@ document.addEventListener("DOMContentLoaded", () => {
         render(); saveGame();
       });
       p.querySelector("#devResetRun").addEventListener("click", () => {
+        // Mimic a run reset without touching crystals/skills:
         state.games = 0; state.money = 0; state.fans = 0; state.totalClicks = 0;
         producers.forEach(p => { p.count = 0; p.cost = p.baseCost; p.upgrades.forEach(u => u.purchased = false); });
-        clickUpgrades.forEach(u => u.purchased = false);
-        state.achievementsUnlocked = []; state.achievements = [];
+        clickUpgrades.forEach(u => u.purchased = false); // run-only
         applySkills(); render(); saveGame();
       });
       p.querySelector("#devExport").addEventListener("click", () => {
@@ -884,7 +892,7 @@ document.addEventListener("DOMContentLoaded", () => {
           }
           if (parsed.clickUpgrades) parsed.clickUpgrades.forEach((u,i) => { if (clickUpgrades[i]) clickUpgrades[i].purchased = !!u.purchased; });
           if (parsed.skills) parsed.skills.forEach((s,i) => { if (skills[i]) skills[i].purchased = !!s.purchased; });
-          rebuildPerClickBaseFromSkills();
+          rebuildPermanentClickFromSkills();
           applySkills(); render(); saveGame();
           p.querySelector("#devInfo").textContent = "Import réussi.";
         } catch (err) {
@@ -906,6 +914,7 @@ document.addEventListener("DOMContentLoaded", () => {
       else removePanel();
     }
 
+    // keystroke listener: Ctrl+D toggles
     window.addEventListener("keydown", (e) => {
       const tag = (document.activeElement && document.activeElement.tagName) || "";
       if (tag === "INPUT" || tag === "TEXTAREA") return;
@@ -921,4 +930,5 @@ document.addEventListener("DOMContentLoaded", () => {
   applySkills();
   render();
   requestAnimationFrame(loop);
+
 }); // end DOMContentLoaded
