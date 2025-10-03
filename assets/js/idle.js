@@ -16,14 +16,11 @@ document.addEventListener("DOMContentLoaded", () => {
     critChanceBase: 5,
     critChance: 5,       // valeur effective (appliquée via skills)
     critMultiplier: 2,
-    achievementsUnlocked: [], // achievements définitivement unlocked (persist until full reset) -> NOTE: will be reset on prestige by request
+    achievementsUnlocked: [], // achievements définitivement unlocked
     achievements: [],    // for display building each tick
     nextPrestige: 5000000, // seuil initial (5 000 000)
     autoBuyLast: 0,      // timestamp pour auto-buyer
     autoBuyerEnabled: false,
-
-    // prestige permanent upgrades removed (we removed boutique per request)
-    // golden event removed
   };
 
   // expose for debug
@@ -139,7 +136,7 @@ document.addEventListener("DOMContentLoaded", () => {
     prestigeNote: $("prestigeNote"),
     upgrades: $("upgrades"),
     clickUpgradesList: $("clickUpgrades"),
-    achievementsBtn: $("achievements"), // will be transformed into a button that opens the achievements modal
+    achievementsBtn: $("achievements"),
     perClick: $("perClick"),
     perSecond: $("perSecond"),
     resetBtn: $("resetBtn"),
@@ -201,7 +198,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const skillList = document.getElementById("skillList");
   const closeSkillModal = document.getElementById("closeSkillModal");
 
-  // achievements modal (new: replaces the old achievements panel)
+  // achievements modal (replaces the old achievements panel)
   const achievementsModal = document.createElement("div");
   achievementsModal.id = "achievementsModal";
   achievementsModal.style.position = "fixed";
@@ -259,11 +256,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // --- Rebuild permanent click from skills only ---
   function rebuildPermanentClickFromSkills() {
-    // Base permanent is 1, skills that add to click (click_plus_1) add afterwards (we follow requested formula)
+    // Base permanent is 1, skills that add to click (click_plus_1) add afterwards
     let permSkillAdd = 0;
     if (skills.find(s => s.id === "click_plus_1" && s.purchased)) permSkillAdd += 1;
     state.perClickBase = 1; // base always 1
-    // We'll store permanent addition separately (so perClick formula can be base * prestigeMult + permSkillAdd + runExtra)
     state.permClickSkillAdd = permSkillAdd;
   }
 
@@ -305,7 +301,7 @@ document.addEventListener("DOMContentLoaded", () => {
     clickUpgrades.forEach(u => { if (u.purchased) runClickExtra += u.extraGain; });
     state.clickRunExtra = runClickExtra;
 
-    // --- CLICK formula requested by you:
+    // --- CLICK formula requested:
     // perClick = (base * prestigeMultiplier) + permanent_skill_additions + run_extras
     // prestigeMultiplier = 1.25 ^ crystalsTotal
     const prestigeMult = Math.pow(1.25, (state.crystalsTotal || 0));
@@ -314,7 +310,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // --- Achievements (definition) ---
   function buildAchievementCandidates() {
-    // We need the full list to display unlocked / pending
     return [
       { id: "money_1k", check: () => state.money >= 1_000, text: "1k$ accumulés" },
       { id: "money_100k", check: () => state.money >= 100_000, text: "100k$ accumulés" },
@@ -344,7 +339,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // --- Save / Load ---
   function saveGame() {
-    // Save canonical minimal state to avoid storing derived fields
     const payload = {
       state: {
         games: state.games,
@@ -377,7 +371,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (parsed.state) {
         const s = parsed.state;
-        // copy only allowed keys
         if (typeof s.games === "number") state.games = s.games;
         if (typeof s.fans === "number") state.fans = s.fans;
         if (typeof s.money === "number") state.money = s.money;
@@ -405,7 +398,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
       parsed.skills?.forEach((s, i) => { if (skills[i]) skills[i].purchased = !!s.purchased; });
 
-      // ensure multiplier corresponds to crystalsTotal on load
       state.multiplier = 1 + (state.crystalsTotal || 0) * 0.15;
 
       applySkills();
@@ -469,7 +461,6 @@ document.addEventListener("DOMContentLoaded", () => {
       const prevPurchased = idx === 0 || clickUpgrades[idx - 1].purchased;
       if (state.totalClicks >= u.requiredClicks && prevPurchased && !u.purchased) {
         u.purchased = true;
-        // run-only upgrades: applySkills will sum them as run extras
         applySkills();
         render();
         saveGame();
@@ -546,7 +537,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // --- achievements modal population ---
   function rebuildAchievementsModal() {
     const candidates = buildAchievementCandidates();
-    // unlocked
     achUnlockedList.innerHTML = "";
     achPendingList.innerHTML = "";
     const unlockedIds = new Set(state.achievementsUnlocked || []);
@@ -590,11 +580,14 @@ document.addEventListener("DOMContentLoaded", () => {
     if (els.money) els.money.textContent = Math.floor(state.money);
     if (els.fans) els.fans.textContent = Math.floor(state.fans);
 
-    // Show only "Cristaux : X" as requested (remove redundant prestige line)
+    // Show only "Cristaux : X"
     if (crystalsSpan) crystalsSpan.textContent = state.crystals;
 
-    // Show perClick with clear, older-style annotation
-    // We'll display like: "Gain par clic : X (base Y × prest Z + skills A + run B)"
+    // Keep prestige element synced (if exists) to avoid stale "prestige 0"
+    const prestigeEl = document.getElementById("prestige");
+    if (prestigeEl) prestigeEl.textContent = state.crystalsTotal;
+
+    // Show perClick with clear annotation
     const prestigeMult = Math.pow(1.25, (state.crystalsTotal || 0));
     const basePart = (state.perClickBase * prestigeMult).toFixed(2);
     const skillsPart = (state.permClickSkillAdd || 0).toFixed(2);
@@ -603,7 +596,7 @@ document.addEventListener("DOMContentLoaded", () => {
       els.perClick.textContent = `Gain par clic : ${state.perClick.toFixed(2)} (base ${basePart} + skills ${skillsPart} + run ${runPart})`;
     }
 
-    // perSecond: show totalRate * multiplier
+    // perSecond
     if (els.perSecond) els.perSecond.textContent = `${(totalRate() * state.multiplier).toFixed(2)} (x${state.multiplier.toFixed(2)})`;
 
     // producers
@@ -645,7 +638,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
 
-    // achievements display (we now use modal; keep state updated)
+    // achievements
     checkAndUnlockAchievements();
 
     // prestige progress
@@ -653,13 +646,13 @@ document.addEventListener("DOMContentLoaded", () => {
     if (progressFill) progressFill.style.width = `${(progress * 100).toFixed(1)}%`;
     if (progressText) progressText.textContent = `${Math.floor(state.games)} / ${state.nextPrestige} jeux (${(progress * 100).toFixed(1)}%)`;
 
-    // open skills button visible if ever prestiged (crystalsTotal>0) so player can view tree
+    // open skills button visible if ever prestiged
     if (openSkillsBtn) {
       openSkillsBtn.style.display = state.crystalsTotal > 0 ? "inline-block" : "none";
       openSkillsBtn.disabled = state.crystals <= 0;
     }
 
-    // achievements button always visible (we created it)
+    // achievements button always visible
     if (openAchievementsBtn) {
       openAchievementsBtn.style.display = "inline-block";
     }
@@ -682,12 +675,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const totalGain = gain;
     state.games += totalGain;
     state.money += totalGain;
-    showFloatingText(`+${totalGain.toFixed(1)}`, e.pageX, e.pageY);
+    // show with 2 decimals to match the perClick display (fix rounding inconsistency)
+    showFloatingText(`+${totalGain.toFixed(2)}`, e.pageX, e.pageY);
     render();
     saveGame();
   });
 
-  // --- Prestige: 1 cristal per prestige, threshold growth; resets run upgrades & achievements as requested ---
+  // --- Prestige: 1 cristal per prestige, threshold growth; resets run upgrades & achievements ---
   els.prestigeBtn.addEventListener("click", () => {
     if (!canGainCrystal()) return;
 
@@ -695,10 +689,10 @@ document.addEventListener("DOMContentLoaded", () => {
     state.crystals += 1;
     state.crystalsTotal += 1;
 
-    // update permanent multiplier derived from crystalsTotal (still used for producers display etc.)
+    // update permanent multiplier derived from crystalsTotal
     state.multiplier = 1 + state.crystalsTotal * 0.15;
 
-    // Reset run progress, persist ONLY skills & crystals & prestigeTotal (and reset achievements per request)
+    // Reset run progress, persist ONLY skills & crystals
     state.games = 0;
     state.money = 0;
     state.fans = 0;
@@ -787,7 +781,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const delta = (now - last) / 1000;
     last = now;
 
-    // production gain (no golden events anymore)
+    // production gain
     const gain = totalRate() * state.multiplier * delta;
     state.games += gain;
     state.money += gain;
@@ -795,7 +789,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     tryAutoBuy();
 
-    // keep derived fields up to date
     applySkills();
     render();
     saveGame();
@@ -846,7 +839,6 @@ document.addEventListener("DOMContentLoaded", () => {
       });
       p.querySelector("#devGiveCryst").addEventListener("click", () => {
         state.crystals = (state.crystals || 0) + 1;
-        // do not increment crystalsTotal here by default; dev can modify if needed via console
         applySkills(); render(); saveGame();
       });
       p.querySelector("#devAddAllProd").addEventListener("click", () => {
@@ -862,10 +854,9 @@ document.addEventListener("DOMContentLoaded", () => {
         render(); saveGame();
       });
       p.querySelector("#devResetRun").addEventListener("click", () => {
-        // Mimic a run reset without touching crystals/skills:
         state.games = 0; state.money = 0; state.fans = 0; state.totalClicks = 0;
         producers.forEach(p => { p.count = 0; p.cost = p.baseCost; p.upgrades.forEach(u => u.purchased = false); });
-        clickUpgrades.forEach(u => u.purchased = false); // run-only
+        clickUpgrades.forEach(u => u.purchased = false);
         applySkills(); render(); saveGame();
       });
       p.querySelector("#devExport").addEventListener("click", () => {
